@@ -1,0 +1,24 @@
+{
+  "name": "sensorseal-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SensorSeal Backend API for Group 4 - Blockchain IoT Notarization",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "device": "node device-cli.js",
+    "device:burst": "node device-cli.js burst 50",
+    "device:breach": "SIMULATE_BREACH=true node device-cli.js"
+  },
+  "keywords": ["blockchain", "iot", "ipfs", "cold-chain"],
+  "author": "Group 4",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "viem": "^2.37.5",
+    "kubo-rpc-client": "^5.0.0",
+    "dotenv": "^16.4.5"
+  }
+}
