@@ -1,0 +1,9 @@
+[
+  { "type": "event", "name": "DeviceAdded", "inputs": [
+    { "name": "dev", "type": "address", "indexed": true },
+    { "name": "metaCid", "type": "string", "indexed": false }
+  ]},
+  { "type": "function", "name": "device", "stateMutability": "view", "inputs": [{ "name": "", "type": "address" }], "outputs": [{ "type": "bool" }] },
+  { "type": "function", "name": "metaCidOf", "stateMutability": "view", "inputs": [{ "name": "", "type": "address" }], "outputs": [{ "type": "string" }] }
+]
+

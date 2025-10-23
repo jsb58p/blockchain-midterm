@@ -1,0 +1,18 @@
+[
+  { "type": "event", "name": "BatchCommitted", "inputs": [
+    { "name": "device", "type": "address", "indexed": true },
+    { "name": "cidHash", "type": "bytes32", "indexed": false },
+    { "name": "start", "type": "uint64", "indexed": false },
+    { "name": "end", "type": "uint64", "indexed": false }
+  ]},
+  { "type": "function", "name": "commitBatch", "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "device", "type": "address" },
+      { "name": "cidHash", "type": "bytes32" },
+      { "name": "start", "type": "uint64" },
+      { "name": "end", "type": "uint64" }
+    ],
+    "outputs": []
+  }
+]
+
