@@ -1,16 +1,26 @@
-export type BatchJson = {
-  device: string;
-  window: { start: number; end: number };
-  count: number;
-  readings: Array<{ t: number; temp: number; hum: number; sig: string }>;
-  sig?: string;
-};
+import { Web3Storage, File } from 'web3.storage';
+const client = new Web3Storage({ token: process.env.WEB3_STORAGE_TOKEN! });
 
-export async function fetchIpfsJson(cid: string): Promise<any> {
-  // Use a public gateway; you can swap to your own gateway for reliability.
-  const url = `https://ipfs.io/ipfs/${cid}`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`IPFS fetch failed (${res.status})`);
-  return res.json();
+async function putJson(obj: any, name: string) {
+  const data = Buffer.from(JSON.stringify(obj));
+  const files = [new File([data], `${name}.json`, { type: 'application/json' })];
+  const cid = await client.put(files, { wrapWithDirectory: false });
+  console.log(name, 'CID:', cid); // store this on-chain / in DB
 }
+
+(async () => {
+  await putJson(
+    { make: "DIDTemp100", model: "v1", pubkey: "0x04...", owner: "0x...", traceTokenId: 12345 },
+    "device-meta"
+  );
+  await putJson(
+    { t: 1739577600, temp: 4.2, hum: 54.0, sig: "0x..." },
+    "raw-reading"
+  );
+  await putJson(
+    { device:"0xDeViCe...", window:{start:1739577600,end:1739577660}, count:60, readings:[], sig:"0x..." },
+    "batch"
+  );
+})();
+
 
