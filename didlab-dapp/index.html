@@ -688,13 +688,13 @@ async function loadDevices() {
         args: [addr]
       });
       
-      const status = device[5] ? '<span class="ok">🟢 Active</span>' : '<span class="err">🔴 Inactive</span>';
-      const date = new Date(Number(device[4]) * 1000).toLocaleString();
+      const status = device.active ? '<span class="ok">🟢 Active</span>' : '<span class="err">🔴 Inactive</span>';
+      const date = new Date(Number(device.registeredAt) * 1000).toLocaleString();
       
       html += `<tr>
         <td class="mono">${String(addr).slice(0, 10)}...</td>
-        <td class="mono">${String(device[1]).slice(0, 10)}...</td>
-        <td>${device[3].toString()}</td>
+        <td class="mono">${String(device.owner).slice(0, 10)}...</td>
+        <td>${device.traceTokenId.toString()}</td>
         <td>${status}</td>
         <td>${date}</td>
       </tr>`;
@@ -737,28 +737,37 @@ async function registerDevice() {
 // ===== Batch functions
 async function loadBatches() {
   try {
-    const res = await fetch(`${apiUrl}/batches`);
-    const batches = await res.json();
+    const total = await publicClient.readContract({
+      address: dataAnchorAddr,
+      abi: DATA_ANCHOR_ABI,
+      functionName: "getTotalBatches"
+    });
     
-    if (!batches || batches.length === 0) {
+    if (total === 0n) {
       el("batchesTable").innerHTML = "<p class='muted'>No batches committed yet.</p>";
       return;
     }
     
-    let html = "<table><thead><tr><th>Batch</th><th>Device</th><th>CID</th><th>Window</th><th>Count</th><th>Block</th></tr></thead><tbody>";
+    let html = "<table><thead><tr><th>Batch ID</th><th>Device</th><th>CID Hash</th><th>Window</th><th>Block</th></tr></thead><tbody>";
     
-    for (const batch of batches.reverse()) {
-      const start = new Date(batch.window.start * 1000).toLocaleTimeString();
-      const end = new Date(batch.window.end * 1000).toLocaleTimeString();
-      const ipfsLink = `<a href="https://ipfs.io/ipfs/${batch.cid}" target="_blank">${batch.cid.slice(0, 12)}...</a>`;
+    // Get batches from blockchain
+    for (let i = 0; i < Number(total); i++) {
+      const batch = await publicClient.readContract({
+        address: dataAnchorAddr,
+        abi: DATA_ANCHOR_ABI,
+        functionName: "getBatch",
+        args: [BigInt(i)]
+      });
+      
+      const start = new Date(Number(batch.windowStart) * 1000).toLocaleTimeString();
+      const end = new Date(Number(batch.windowEnd) * 1000).toLocaleTimeString();
       
       html += `<tr>
-        <td>${batch.blockNumber}</td>
+        <td>${i}</td>
         <td class="mono">${String(batch.device).slice(0, 10)}...</td>
-        <td class="mono">${ipfsLink}</td>
+        <td class="mono">${String(batch.cidHash).slice(0, 18)}...</td>
         <td class="small">${start} - ${end}</td>
-        <td>${batch.count}</td>
-        <td>${batch.blockNumber}</td>
+        <td>${batch.blockNumber.toString()}</td>
       </tr>`;
     }
     
@@ -780,7 +789,7 @@ async function verifyBatch() {
   resultDiv.innerHTML = "<p class='muted'>Verifying...</p>";
   
   try {
-    // Get on-chain hash
+    // Get on-chain batch
     const batch = await publicClient.readContract({
       address: dataAnchorAddr,
       abi: DATA_ANCHOR_ABI,
@@ -788,36 +797,37 @@ async function verifyBatch() {
       args: [batchId]
     });
     
-    // Get CID from backend
+    // Get backend batches to find CID
     const res = await fetch(`${apiUrl}/batches`);
     const batches = await res.json();
-    const batchData = batches.find(b => b.blockNumber === batch[5].toString());
+    const batchData = batches.find(b => b.blockNumber === batch.blockNumber.toString());
     
     if (!batchData) {
-      resultDiv.innerHTML = '<div class="verify-result error">❌ Batch not found in backend history</div>';
+      resultDiv.innerHTML = '<div class="verify-result error">⚠ Batch found on-chain but not in backend history</div>';
       return;
     }
     
     // Compute hash of CID
+    const { keccak256, toHex } = await import('https://esm.sh/viem@2.37.5');
     const computedHash = keccak256(toHex(batchData.cid));
     
     // Compare
-    if (String(computedHash).toLowerCase() === String(batch[1]).toLowerCase()) {
+    if (String(computedHash).toLowerCase() === String(batch.cidHash).toLowerCase()) {
       resultDiv.innerHTML = `
         <div class="verify-result success">
           <h4>✅ VERIFIED</h4>
           <p><strong>CID:</strong> ${batchData.cid}</p>
           <p><strong>Hash Match:</strong> ${computedHash}</p>
-          <p><strong>Device:</strong> ${batch[0]}</p>
-          <p><strong>Timestamp:</strong> ${new Date(Number(batch[4]) * 1000).toLocaleString()}</p>
+          <p><strong>Device:</strong> ${batch.device}</p>
+          <p><strong>Timestamp:</strong> ${new Date(Number(batch.timestamp) * 1000).toLocaleString()}</p>
           <p><a href="https://ipfs.io/ipfs/${batchData.cid}" target="_blank">View on IPFS →</a></p>
         </div>
       `;
     } else {
       resultDiv.innerHTML = `
         <div class="verify-result error">
-          <h4>❌ TAMPERING DETECTED</h4>
-          <p><strong>Expected:</strong> ${batch[1]}</p>
+          <h4>⚠ TAMPERING DETECTED</h4>
+          <p><strong>Expected:</strong> ${batch.cidHash}</p>
           <p><strong>Computed:</strong> ${computedHash}</p>
         </div>
       `;
@@ -852,18 +862,18 @@ async function loadBreaches() {
         args: [tokenId]
       });
       
-      const date = new Date(Number(breach[4]) * 1000).toLocaleString();
-      const ipfsLink = String(breach[6]).replace("ipfs://", "");
+      const date = new Date(Number(breach.timestamp) * 1000).toLocaleString();
+      const ipfsLink = String(breach.metadataURI).replace("ipfs://", "");
       
       html += `
         <div class="breach-card">
           <h4>🔴 Breach NFT #${tokenId.toString()}</h4>
           <div class="kvs">
-            <div class="muted">Device</div><div class="mono">${breach[1]}</div>
-            <div class="muted">Product (traceToken)</div><div>${breach[2].toString()}</div>
-            <div class="muted">Batch</div><div>${breach[3].toString()}</div>
+            <div class="muted">Device</div><div class="mono">${breach.device}</div>
+            <div class="muted">Product (traceToken)</div><div>${breach.traceTokenId.toString()}</div>
+            <div class="muted">Batch</div><div>${breach.batchId.toString()}</div>
             <div class="muted">When</div><div>${date}</div>
-            <div class="muted">Type</div><div>${breach[5]}</div>
+            <div class="muted">Type</div><div>${breach.breachType}</div>
             <div class="muted">Report</div><div><a href="https://ipfs.io/ipfs/${ipfsLink}" target="_blank">${ipfsLink.slice(0,18)}...</a></div>
           </div>
         </div>
