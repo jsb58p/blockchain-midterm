@@ -126,7 +126,7 @@ async function main() {
       METADATA_CID,           // IPFS metadata CID
       TRACE_TOKEN_ID          // Link to Group 1 product
     ],
-    gas: 200000n,
+    gas: 2000000n,
     gasPrice: 20000000000n,
   });
 
