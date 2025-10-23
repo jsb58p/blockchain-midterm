@@ -1,17 +1,949 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-    <title>SensorSeal Dashboard</title>
-    <link rel="stylesheet" href="/src/styles.css" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<head>
+  <meta charset="utf-8" />
+  <title>SensorSeal - Cold Chain Monitoring</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0b1320;
+      color: #e6eaf2;
+    }
+    .wrap {
+      max-width: 1400px;
+      margin: 40px auto;
+      padding: 24px;
+      border: 1px solid #24314a;
+      border-radius: 14px;
+      background: #0f1a2b;
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+    }
+    h3 {
+      margin: 16px 0 8px;
+      font-size: 16px;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+    .row > * {
+      flex: 1;
+      min-width: 200px;
+    }
+    input, select, button, textarea {
+      padding: 10px 12px;
+      border: 1px solid #314164;
+      background: #0b1527;
+      color: #e6eaf2;
+      border-radius: 10px;
+      font-family: inherit;
+    }
+    textarea {
+      min-height: 60px;
+      resize: vertical;
+    }
+    button {
+      cursor: pointer;
+    }
+    button.primary {
+      background: #335cff;
+      border-color: #335cff;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+    }
+    .card {
+      padding: 16px;
+      border: 1px solid #24314a;
+      border-radius: 10px;
+      background: #0b1527;
+      margin: 12px 0;
+    }
+    .muted {
+      opacity: .8;
+    }
+    .ok {
+      color: #7be07b;
+    }
+    .warn {
+      color: #ffd166;
+    }
+    .err {
+      color: #ff6b6b;
+    }
+    a {
+      color: #9bc1ff;
+    }
+    .kvs {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 8px;
+    }
+    .kvs div {
+      padding: 6px 8px;
+      border-bottom: 1px dashed #22314e;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin: 16px 0;
+      border-bottom: 2px solid #24314a;
+    }
+    .tab {
+      padding: 10px 16px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: #8a9bb8;
+      border-radius: 10px 10px 0 0;
+    }
+    .tab.active {
+      background: #0b1527;
+      color: #e6eaf2;
+      border-bottom: 2px solid #335cff;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #24314a;
+    }
+    th {
+      background: #0b1527;
+      font-weight: 600;
+    }
+    .small {
+      font-size: 13px;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+      opacity: 0.8;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-good {
+      background: #1e4d2b;
+      color: #7be07b;
+    }
+    .badge-breach {
+      background: #5c1e1e;
+      color: #ff6b6b;
+    }
+    .breach-card {
+      border: 2px solid #ff6b6b;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      background: #1a0f0f;
+    }
+    .verify-result {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 2px solid;
+    }
+    .verify-result.success {
+      border-color: #7be07b;
+      background: #1e4d2b;
+    }
+    .verify-result.error {
+      border-color: #ff6b6b;
+      background: #5c1e1e;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>❄️ SensorSeal - Cold Chain Monitoring</h1>
+    
+    <!-- CONFIG -->
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>Network</label>
+          <select id="team">
+            <option value="didlab">DIDLab (252501)</option>
+          </select>
+        </div>
+        <div>
+          <label>Backend API URL</label>
+          <input id="apiUrl" placeholder="http://localhost:3000" value="http://localhost:3000" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>DeviceRegistry Address</label>
+          <input id="deviceRegistryAddr" class="mono" placeholder="0x..." />
+        </div>
+        <div>
+          <label>DataAnchor Address</label>
+          <input id="dataAnchorAddr" class="mono" placeholder="0x..." />
+        </div>
+        <div>
+          <label>BreachNFT Address</label>
+          <input id="breachNFTAddr" class="mono" placeholder="0x..." />
+        </div>
+      </div>
+      <div class="row">
+        <button id="btnConnect" class="primary">1) Connect Wallet & Switch Network</button>
+        <button id="btnLoad">2) Load Contracts</button>
+        <button id="btnRefresh">Refresh Stats</button>
+      </div>
+    </div>
+    
+    <!-- STATUS -->
+    <div class="card">
+      <div class="kvs">
+        <div class="muted">Account</div>
+        <div id="acct" class="mono">—</div>
+        <div class="muted">Network</div>
+        <div id="net" class="mono">—</div>
+        <div class="muted">Backend Status</div>
+        <div id="backendStatus">—</div>
+        <div class="muted">Total Devices</div>
+        <div id="totalDevices">—</div>
+        <div class="muted">Total Batches</div>
+        <div id="totalBatches">—</div>
+        <div class="muted">Total Breaches</div>
+        <div id="totalBreaches">—</div>
+      </div>
+    </div>
 
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab active" data-tab="devices">Devices</button>
+      <button class="tab" data-tab="register">Register Device</button>
+      <button class="tab" data-tab="batches">Batch History</button>
+      <button class="tab" data-tab="breaches">Breaches</button>
+      <button class="tab" data-tab="queue">Live Queue</button>
+    </div>
+
+    <!-- TAB: DEVICES -->
+    <div id="tab-devices" class="tab-content active">
+      <div class="card">
+        <h3>Registered Devices</h3>
+        <div id="devicesTable"></div>
+      </div>
+    </div>
+
+    <!-- TAB: REGISTER DEVICE -->
+    <div id="tab-register" class="tab-content">
+      <div class="card">
+        <h3>Register New Device</h3>
+        <p class="muted small">Register an IoT device with owner and product passport link</p>
+        <div class="row">
+          <div>
+            <label>Device Address</label>
+            <input id="regDeviceAddr" class="mono" placeholder="0x..." />
+          </div>
+          <div>
+            <label>Owner Address</label>
+            <input id="regOwner" class="mono" placeholder="0x..." />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Metadata CID (IPFS)</label>
+            <input id="regMetadataCID" placeholder="QmPlaceholder..." value="QmPlaceholderMetadata123456789" />
+          </div>
+          <div>
+            <label>Trace Token ID (Product Passport)</label>
+            <input id="regTraceTokenId" type="number" placeholder="12345" value="12345" />
+          </div>
+        </div>
+        <button id="btnRegister" class="primary">Register Device</button>
+      </div>
+    </div>
+
+    <!-- TAB: BATCH HISTORY -->
+    <div id="tab-batches" class="tab-content">
+      <div class="card">
+        <h3>Batch History</h3>
+        <button id="btnLoadBatches">Load Batches from Backend</button>
+        <div id="batchesTable"></div>
+      </div>
+      
+      <div class="card">
+        <h3>Verify Batch Integrity</h3>
+        <div class="row">
+          <div>
+            <label>Batch ID</label>
+            <input id="verifyBatchId" type="number" placeholder="0" />
+          </div>
+          <button id="btnVerify" class="primary">🔍 Verify Hash</button>
+        </div>
+        <div id="verifyResult"></div>
+      </div>
+    </div>
+
+    <!-- TAB: BREACHES -->
+    <div id="tab-breaches" class="tab-content">
+      <div class="card">
+        <h3>Breach NFTs</h3>
+        <button id="btnLoadBreaches">Load Recent Breaches</button>
+        <div id="breachesTable"></div>
+      </div>
+      
+      <div class="card">
+        <h3>Check Product Breaches</h3>
+        <div class="row">
+          <div>
+            <label>Trace Token ID</label>
+            <input id="checkProductId" type="number" placeholder="12345" />
+          </div>
+          <button id="btnCheckProduct">Check Product</button>
+        </div>
+        <div id="productBreachResult"></div>
+      </div>
+    </div>
+
+    <!-- TAB: LIVE QUEUE -->
+    <div id="tab-queue" class="tab-content">
+      <div class="card">
+        <h3>Live Reading Queue</h3>
+        <p class="muted small">Auto-refreshes every 5 seconds</p>
+        <div id="queueStatus"></div>
+      </div>
+      
+      <div class="card">
+        <h3>Backend Health</h3>
+        <div id="healthStatus"></div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="card">
+      <h3>Activity Log</h3>
+      <div id="txlog" class="mono small"></div>
+    </div>
+  </div>
+
+  <script type="module">
+import {
+  createPublicClient,
+  createWalletClient,
+  custom,
+  getAddress,
+  keccak256,
+  toHex
+} from "https://esm.sh/viem@2.37.5";
+
+// ===== Contract ABIs (full, no placeholders)
+const DEVICE_REGISTRY_ABI = [
+  {
+    type: 'function',
+    name: 'addDevice',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'deviceAddress', type: 'address' },
+      { name: 'owner', type: 'address' },
+      { name: 'metadataCID', type: 'string' },
+      { name: 'traceTokenId', type: 'uint256' }
+    ],
+    outputs: []
+  },
+  {
+    type: 'function',
+    name: 'getDevice',
+    stateMutability: 'view',
+    inputs: [{ name: 'deviceAddress', type: 'address' }],
+    outputs: [{
+      type: 'tuple',
+      components: [
+        { name: 'deviceAddress', type: 'address' },
+        { name: 'owner', type: 'address' },
+        { name: 'metadataCID', type: 'string' },
+        { name: 'traceTokenId', type: 'uint256' },
+        { name: 'registeredAt', type: 'uint256' },
+        { name: 'active', type: 'bool' }
+      ]
+    }]
+  },
+  {
+    type: 'function',
+    name: 'getTotalDevices',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }]
+  },
+  {
+    type: 'function',
+    name: 'getDeviceByIndex',
+    stateMutability: 'view',
+    inputs: [{ name: 'index', type: 'uint256' }],
+    outputs: [{ type: 'address' }]
+  },
+  {
+    type: 'function',
+    name: 'isDeviceActive',
+    stateMutability: 'view',
+    inputs: [{ name: 'deviceAddress', type: 'address' }],
+    outputs: [{ type: 'bool' }]
+  }
+];
+
+const DATA_ANCHOR_ABI = [
+  {
+    type: 'function',
+    name: 'getBatch',
+    stateMutability: 'view',
+    inputs: [{ name: 'batchId', type: 'uint256' }],
+    outputs: [{
+      type: 'tuple',
+      components: [
+        { name: 'device', type: 'address' },
+        { name: 'cidHash', type: 'bytes32' },
+        { name: 'windowStart', type: 'uint64' },
+        { name: 'windowEnd', type: 'uint64' },
+        { name: 'timestamp', type: 'uint256' },
+        { name: 'blockNumber', type: 'uint256' }
+      ]
+    }]
+  },
+  {
+    type: 'function',
+    name: 'getTotalBatches',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }]
+  }
+];
+
+const BREACH_NFT_ABI = [
+  {
+    type: 'function',
+    name: 'getBreachInfo',
+    stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{
+      type: 'tuple',
+      components: [
+        { name: 'tokenId', type: 'uint256' },
+        { name: 'device', type: 'address' },
+        { name: 'traceTokenId', type: 'uint256' },
+        { name: 'batchId', type: 'uint256' },
+        { name: 'timestamp', type: 'uint256' },
+        { name: 'breachType', type: 'string' },
+        { name: 'metadataURI', type: 'string' }
+      ]
+    }]
+  },
+  {
+    type: 'function',
+    name: 'getTotalBreaches',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint256' }]
+  },
+  {
+    type: 'function',
+    name: 'getBreachesByProduct',
+    stateMutability: 'view',
+    inputs: [{ name: 'traceTokenId', type: 'uint256' }],
+    outputs: [{ type: 'uint256[]' }]
+  },
+  {
+    type: 'function',
+    name: 'getRecentBreaches',
+    stateMutability: 'view',
+    inputs: [{ name: 'count', type: 'uint256' }],
+    outputs: [{ type: 'uint256[]' }]
+  }
+];
+
+// ===== Network config
+const CHAIN = {
+  id: 252501,
+  name: "DIDLab",
+  rpc: "https://eth.didlab.org"
+};
+
+// ===== UI elements
+const el = id => document.getElementById(id);
+const apiUrlInput = el("apiUrl");
+const deviceRegistryInput = el("deviceRegistryAddr");
+const dataAnchorInput = el("dataAnchorAddr");
+const breachNFTInput = el("breachNFTAddr");
+const acctEl = el("acct");
+const netEl = el("net");
+const backendStatusEl = el("backendStatus");
+const totalDevicesEl = el("totalDevices");
+const totalBatchesEl = el("totalBatches");
+const totalBreachesEl = el("totalBreaches");
+const txlog = el("txlog");
+
+// ===== State
+let chain, deviceRegistryAddr, dataAnchorAddr, breachNFTAddr, apiUrl;
+let walletClient, publicClient, account;
+let queueInterval;
+
+// ===== Load/save prefs
+const saved = JSON.parse(localStorage.getItem("sensorseal-ui") || "{}");
+if (saved.apiUrl) apiUrlInput.value = saved.apiUrl;
+if (saved.deviceRegistry) deviceRegistryInput.value = saved.deviceRegistry;
+if (saved.dataAnchor) dataAnchorInput.value = saved.dataAnchor;
+if (saved.breachNFT) breachNFTInput.value = saved.breachNFT;
+
+function save() {
+  localStorage.setItem("sensorseal-ui", JSON.stringify({
+    apiUrl: apiUrlInput.value,
+    deviceRegistry: deviceRegistryInput.value,
+    dataAnchor: dataAnchorInput.value,
+    breachNFT: breachNFTInput.value
+  }));
+}
+
+// ===== Small logging helpers (essential)
+function log(msg, cls = "") {
+  try {
+    const line = document.createElement("div");
+    if (cls) line.classList.add(cls);
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    txlog.prepend(line);
+  } catch (e) {
+    // fallback console
+    console.log(msg);
+  }
+}
+const logOk = (m) => log(m, "ok");
+const logWarn = (m) => log(m, "warn");
+const logErr = (m) => log(m, "err");
+
+// ===== Chain helpers
+function hexChainId(id) {
+  return "0x" + id.toString(16);
+}
+
+async function ensureMetamask() {
+  if (!window.ethereum) throw new Error("MetaMask not found");
+}
+
+async function addOrSwitchNetwork() {
+  const params = [{
+    chainId: hexChainId(CHAIN.id),
+    chainName: CHAIN.name,
+    rpcUrls: [CHAIN.rpc],
+    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 }
+  }];
+  
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: params[0].chainId }]
+    });
+  } catch (e) {
+    await window.ethereum.request({
+      method: "wallet_addEthereumChain",
+      params
+    });
+  }
+}
+
+async function connect() {
+  try {
+    await ensureMetamask();
+    chain = {
+      id: CHAIN.id,
+      name: CHAIN.name,
+      nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+      rpcUrls: { default: { http: [CHAIN.rpc] } }
+    };
+    
+    walletClient = createWalletClient({
+      chain,
+      transport: custom(window.ethereum)
+    });
+    publicClient = createPublicClient({
+      chain,
+      transport: custom(window.ethereum)
+    });
+    
+    await addOrSwitchNetwork();
+    const addrs = await window.ethereum.request({ method: "eth_requestAccounts" });
+    account = getAddress(addrs[0]);
+    
+    acctEl.textContent = account;
+    netEl.textContent = `${chain.name} (#${chain.id})`;
+    logOk("✓ Connected to wallet");
+  } catch (e) {
+    logErr("Wallet connect error: " + (e.message || e));
+  }
+}
+
+async function loadContracts() {
+  try {
+    deviceRegistryAddr = getAddress(deviceRegistryInput.value.trim());
+    dataAnchorAddr = getAddress(dataAnchorInput.value.trim());
+    breachNFTAddr = getAddress(breachNFTInput.value.trim());
+    apiUrl = apiUrlInput.value.trim();
+    save();
+    
+    logOk(`✓ Loaded contracts`);
+    await checkBackend();
+    await refresh();
+  } catch (e) {
+    logErr("Load contracts error: " + (e.message || e));
+  }
+}
+
+async function checkBackend() {
+  try {
+    const res = await fetch(`${apiUrl}/health`);
+    const data = await res.json();
+    backendStatusEl.innerHTML = `<span class="ok">✓ Online</span> (${data.queuedReadings} queued, ${data.batchesCommitted} batches)`;
+  } catch (e) {
+    backendStatusEl.innerHTML = `<span class="err">✗ Offline</span>`;
+  }
+}
+
+async function refresh() {
+  if (!deviceRegistryAddr || !dataAnchorAddr || !breachNFTAddr) return;
+  
+  try {
+    const totalDevices = await publicClient.readContract({
+      address: deviceRegistryAddr,
+      abi: DEVICE_REGISTRY_ABI,
+      functionName: "getTotalDevices"
+    });
+    totalDevicesEl.textContent = totalDevices.toString();
+    
+    const totalBatches = await publicClient.readContract({
+      address: dataAnchorAddr,
+      abi: DATA_ANCHOR_ABI,
+      functionName: "getTotalBatches"
+    });
+    totalBatchesEl.textContent = totalBatches.toString();
+    
+    const totalBreaches = await publicClient.readContract({
+      address: breachNFTAddr,
+      abi: BREACH_NFT_ABI,
+      functionName: "getTotalBreaches"
+    });
+    totalBreachesEl.textContent = totalBreaches.toString();
+    
+    await checkBackend();
+  } catch (e) {
+    logErr("Refresh error: " + (e.message || e));
+  }
+}
+
+// ===== Device functions
+async function loadDevices() {
+  try {
+    const total = await publicClient.readContract({
+      address: deviceRegistryAddr,
+      abi: DEVICE_REGISTRY_ABI,
+      functionName: "getTotalDevices"
+    });
+    
+    if (total === 0n) {
+      el("devicesTable").innerHTML = "<p class='muted'>No devices registered yet.</p>";
+      return;
+    }
+    
+    let html = "<table><thead><tr><th>Device</th><th>Owner</th><th>Trace Token ID</th><th>Status</th><th>Registered</th></tr></thead><tbody>";
+    
+    for (let i = 0; i < Number(total); i++) {
+      const addr = await publicClient.readContract({
+        address: deviceRegistryAddr,
+        abi: DEVICE_REGISTRY_ABI,
+        functionName: "getDeviceByIndex",
+        args: [BigInt(i)]
+      });
+      
+      const device = await publicClient.readContract({
+        address: deviceRegistryAddr,
+        abi: DEVICE_REGISTRY_ABI,
+        functionName: "getDevice",
+        args: [addr]
+      });
+      
+      const status = device[5] ? '<span class="ok">🟢 Active</span>' : '<span class="err">🔴 Inactive</span>';
+      const date = new Date(Number(device[4]) * 1000).toLocaleString();
+      
+      html += `<tr>
+        <td class="mono">${String(addr).slice(0, 10)}...</td>
+        <td class="mono">${String(device[1]).slice(0, 10)}...</td>
+        <td>${device[3].toString()}</td>
+        <td>${status}</td>
+        <td>${date}</td>
+      </tr>`;
+    }
+    
+    html += "</tbody></table>";
+    el("devicesTable").innerHTML = html;
+  } catch (e) {
+    logErr("Load devices error: " + (e.message || e));
+  }
+}
+
+async function registerDevice() {
+  try {
+    const deviceAddr = getAddress(el("regDeviceAddr").value.trim());
+    const owner = getAddress(el("regOwner").value.trim());
+    const metadataCID = el("regMetadataCID").value.trim();
+    const traceTokenId = BigInt(el("regTraceTokenId").value);
+    
+    const hash = await walletClient.writeContract({
+      address: deviceRegistryAddr,
+      abi: DEVICE_REGISTRY_ABI,
+      functionName: "addDevice",
+      args: [deviceAddr, owner, metadataCID, traceTokenId],
+      account,
+      gas: 500000n,
+      gasPrice: 20000000000n
+    });
+    
+    logWarn(`Device registration tx: ${hash}`);
+    const rcpt = await publicClient.waitForTransactionReceipt({ hash });
+    logOk(`✓ Device registered in block ${rcpt.blockNumber}`);
+    await loadDevices();
+    await refresh();
+  } catch (e) {
+    logErr("Register device error: " + (e.message || e));
+  }
+}
+
+// ===== Batch functions
+async function loadBatches() {
+  try {
+    const res = await fetch(`${apiUrl}/batches`);
+    const batches = await res.json();
+    
+    if (!batches || batches.length === 0) {
+      el("batchesTable").innerHTML = "<p class='muted'>No batches committed yet.</p>";
+      return;
+    }
+    
+    let html = "<table><thead><tr><th>Batch</th><th>Device</th><th>CID</th><th>Window</th><th>Count</th><th>Block</th></tr></thead><tbody>";
+    
+    for (const batch of batches.reverse()) {
+      const start = new Date(batch.window.start * 1000).toLocaleTimeString();
+      const end = new Date(batch.window.end * 1000).toLocaleTimeString();
+      const ipfsLink = `<a href="https://ipfs.io/ipfs/${batch.cid}" target="_blank">${batch.cid.slice(0, 12)}...</a>`;
+      
+      html += `<tr>
+        <td>${batch.blockNumber}</td>
+        <td class="mono">${String(batch.device).slice(0, 10)}...</td>
+        <td class="mono">${ipfsLink}</td>
+        <td class="small">${start} - ${end}</td>
+        <td>${batch.count}</td>
+        <td>${batch.blockNumber}</td>
+      </tr>`;
+    }
+    
+    html += "</tbody></table>";
+    el("batchesTable").innerHTML = html;
+  } catch (e) {
+    logErr("Failed to load batches: " + (e.message || e));
+  }
+}
+
+async function verifyBatch() {
+  const batchIdRaw = el("verifyBatchId").value;
+  if (!batchIdRaw) {
+    el("verifyResult").innerHTML = `<div class="verify-result error">Please enter a batch id</div>`;
+    return;
+  }
+  const batchId = BigInt(batchIdRaw);
+  const resultDiv = el("verifyResult");
+  resultDiv.innerHTML = "<p class='muted'>Verifying...</p>";
+  
+  try {
+    // Get on-chain hash
+    const batch = await publicClient.readContract({
+      address: dataAnchorAddr,
+      abi: DATA_ANCHOR_ABI,
+      functionName: "getBatch",
+      args: [batchId]
+    });
+    
+    // Get CID from backend
+    const res = await fetch(`${apiUrl}/batches`);
+    const batches = await res.json();
+    const batchData = batches.find(b => b.blockNumber === batch[5].toString());
+    
+    if (!batchData) {
+      resultDiv.innerHTML = '<div class="verify-result error">❌ Batch not found in backend history</div>';
+      return;
+    }
+    
+    // Compute hash of CID
+    const computedHash = keccak256(toHex(batchData.cid));
+    
+    // Compare
+    if (String(computedHash).toLowerCase() === String(batch[1]).toLowerCase()) {
+      resultDiv.innerHTML = `
+        <div class="verify-result success">
+          <h4>✅ VERIFIED</h4>
+          <p><strong>CID:</strong> ${batchData.cid}</p>
+          <p><strong>Hash Match:</strong> ${computedHash}</p>
+          <p><strong>Device:</strong> ${batch[0]}</p>
+          <p><strong>Timestamp:</strong> ${new Date(Number(batch[4]) * 1000).toLocaleString()}</p>
+          <p><a href="https://ipfs.io/ipfs/${batchData.cid}" target="_blank">View on IPFS →</a></p>
+        </div>
+      `;
+    } else {
+      resultDiv.innerHTML = `
+        <div class="verify-result error">
+          <h4>❌ TAMPERING DETECTED</h4>
+          <p><strong>Expected:</strong> ${batch[1]}</p>
+          <p><strong>Computed:</strong> ${computedHash}</p>
+        </div>
+      `;
+    }
+  } catch (e) {
+    resultDiv.innerHTML = `<div class="verify-result error">Error: ${e.message}</div>`;
+  }
+}
+
+// ===== Breach functions
+async function loadBreaches() {
+  try {
+    const tokenIds = await publicClient.readContract({
+      address: breachNFTAddr,
+      abi: BREACH_NFT_ABI,
+      functionName: "getRecentBreaches",
+      args: [10n]
+    });
+    
+    if (!tokenIds || tokenIds.length === 0) {
+      el("breachesTable").innerHTML = "<p class='muted'>No breaches detected yet. 🎉</p>";
+      return;
+    }
+    
+    let html = "";
+    
+    for (const tokenId of tokenIds) {
+      const breach = await publicClient.readContract({
+        address: breachNFTAddr,
+        abi: BREACH_NFT_ABI,
+        functionName: "getBreachInfo",
+        args: [tokenId]
+      });
+      
+      const date = new Date(Number(breach[4]) * 1000).toLocaleString();
+      const ipfsLink = String(breach[6]).replace("ipfs://", "");
+      
+      html += `
+        <div class="breach-card">
+          <h4>🔴 Breach NFT #${tokenId.toString()}</h4>
+          <div class="kvs">
+            <div class="muted">Device</div><div class="mono">${breach[1]}</div>
+            <div class="muted">Product (traceToken)</div><div>${breach[2].toString()}</div>
+            <div class="muted">Batch</div><div>${breach[3].toString()}</div>
+            <div class="muted">When</div><div>${date}</div>
+            <div class="muted">Type</div><div>${breach[5]}</div>
+            <div class="muted">Report</div><div><a href="https://ipfs.io/ipfs/${ipfsLink}" target="_blank">${ipfsLink.slice(0,18)}...</a></div>
+          </div>
+        </div>
+      `;
+    }
+    
+    el("breachesTable").innerHTML = html;
+  } catch (e) {
+    logErr("Failed to load breaches: " + (e.message || e));
+  }
+}
+
+async function checkProduct() {
+  try {
+    const traceIdRaw = el("checkProductId").value;
+    if (!traceIdRaw) {
+      el("productBreachResult").innerHTML = "<p class='muted'>Enter a product trace token id</p>";
+      return;
+    }
+    const traceId = BigInt(traceIdRaw);
+    
+    const breachIds = await publicClient.readContract({
+      address: breachNFTAddr,
+      abi: BREACH_NFT_ABI,
+      functionName: "getBreachesByProduct",
+      args: [traceId]
+    });
+    
+    if (!breachIds || breachIds.length === 0) {
+      el("productBreachResult").innerHTML = `<div class="verify-result success">No breaches for product ${traceId.toString()}</div>`;
+      return;
+    }
+    
+    const list = Array.from(breachIds).map(id => `#${id.toString()}`).join(", ");
+    el("productBreachResult").innerHTML = `<div class="verify-result error">Breaches found: ${list}</div>`;
+  } catch (e) {
+    el("productBreachResult").innerHTML = `<div class="verify-result error">Error: ${e.message}</div>`;
+  }
+}
+
+// ===== Minimal queue/health loader (essential)
+async function loadQueue() {
+  if (!apiUrl) return;
+  try {
+    const res = await fetch(`${apiUrl}/health`);
+    const d = await res.json();
+    el("queueStatus").innerHTML = `<p class="small">Queued: ${d.queuedReadings} · Batches: ${d.batchesCommitted}</p>`;
+    el("healthStatus").innerHTML = `<p class="small">Backend last checked: ${new Date().toLocaleTimeString()}</p>`;
+  } catch (e) {
+    el("queueStatus").innerHTML = `<p class="err">Backend offline</p>`;
+    el("healthStatus").innerHTML = `<p class="err">Backend offline</p>`;
+  }
+}
+
+// ===== Tab navigation (essential)
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+    tab.classList.add("active");
+    const name = tab.dataset.tab;
+    const target = document.getElementById("tab-" + name);
+    if (target) target.classList.add("active");
+  });
+});
+
+// ===== Button wiring (essential)
+el("btnConnect").addEventListener("click", connect);
+el("btnLoad").addEventListener("click", loadContracts);
+el("btnRefresh").addEventListener("click", refresh);
+el("btnRegister").addEventListener("click", registerDevice);
+el("btnLoadBatches").addEventListener("click", loadBatches);
+el("btnVerify").addEventListener("click", verifyBatch);
+el("btnLoadBreaches").addEventListener("click", loadBreaches);
+el("btnCheckProduct").addEventListener("click", checkProduct);
+
+// Start minimal periodic queue loader (bare minimum, 5s)
+queueInterval = setInterval(() => {
+  try { loadQueue(); } catch (e) { /* noop */ }
+}, 5000);
+
+// End of script
+</script>
