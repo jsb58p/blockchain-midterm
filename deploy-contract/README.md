@@ -145,7 +145,7 @@ Example output:
 To get device address (for use in DApp):
 
 ```
-node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='device_private_key'; console.log(privateKeyToAccount(pk).address)"
+node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='0xdevice_private_key'; console.log(privateKeyToAccount(pk).address)"
 ```
 
 Example output:
