@@ -1,44 +1,33 @@
-# DIDLab ERC-20 DApp
+# SensorSeal Frontend Quick Start
 
-## Team Info
+## Setup
+1. Open `index.html` in a browser
+2. Have MetaMask installed
 
-- **Team Number:** 00
-- **RPC Endpoint:** https://eth.didlab.org
-- **Chain ID (Decimal):** 252501
-- **Token Address:** `0x71550ac84ba7599220eaef5c756b847cb4486606` 
+## Steps to Use
 
-# How to Run Locally (Dev Server or Static)
+### 1. Connect Wallet
+- Click "1) Connect Wallet & Switch Network"
+- Approve MetaMask prompts
 
-## Dev Server (Recommended for MetaMask)
+### 2. Load Contracts
+- Enter your 3 contract addresses (DeviceRegistry, DataAnchor, BreachNFT)
+- Set Backend API URL (default: `http://localhost:3000`)
+- Click "2) Load Contracts"
 
-1. Make sure you have **Python 3** installed.  
-2. Open a terminal.  
-3. Navigate to your project folder (where `index.html` is):  
-   `cd path/to/your/project`  
-4. Start the server:  
-   `python3 -m http.server`  
-5. Open your browser and go to:  
-   `http://localhost:8000`  
+### 3. Register a Device
+- Go to "Register Device" tab
+- Enter device address (generate with: `node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='0x[PRIVATE_KEY]'; console.log(privateKeyToAccount(pk).address)"`)
+- Enter owner address (your wallet)
+- Click "Register Device"
 
----
+### 4. View Data
+- **Devices tab**: See registered devices
+- **Batch History tab**: View committed sensor batches, verify integrity
+- **Breaches tab**: See breach NFTs
+- **Live Queue tab**: Monitor backend status
 
-## Static
-
-1. Locate `index.html` in your project folder.  
-2. Double-click the file to open it in your default browser.  
-3. The URL will look like:  
-   `file:///path/to/index.html`
-
-# Screenshots:
-
-## Connected state, token loaded
-
-![connected, token loaded](https://github.com/jsb58p/blockchain-assignment4-biddinger/blob/main/screenshots/transaction.png)
-
-<br><br><br>
-
-## Transfer confirmation
-
-![transfer confirmation](https://github.com/jsb58p/blockchain-assignment4-biddinger/blob/main/screenshots/transaction_verify1.png)
-
-![transfer confirmation 2](https://github.com/jsb58p/blockchain-assignment4-biddinger/blob/main/screenshots/transaction_verify(after%202%20transactions).png)
+## Notes
+- Must use wallet that deployed contracts (has admin role)
+- Each device can only be registered once
+- Backend must be running on specified API URL
