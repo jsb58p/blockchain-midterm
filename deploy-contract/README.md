@@ -63,7 +63,7 @@ BREACH_NFT_ADDRESS=
 BREACH_RECIPIENT=your_admin_address_here
 
 # IPFS Configuration
-IPFS_URL=http://127.0.0.1:5001
+IPFS_URL=https://ipfs.didlab.org/api/v0
 
 # Backend Settings
 PORT=3000
