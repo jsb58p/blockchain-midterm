@@ -137,13 +137,16 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 Example output:
+
 ```
 98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f05208e
 ```
 
 To get device address (for use in DApp):
+
 ```
 node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='device_private_key'; console.log(privateKeyToAccount(pk).address)"
+```
 
 ### Add to Both `.env` Files
 
