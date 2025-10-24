@@ -141,6 +141,10 @@ Example output:
 98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f05208e
 ```
 
+To get device address (for use in DApp):
+```
+node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='device_private_key'; console.log(privateKeyToAccount(pk).address)"
+
 ### Add to Both `.env` Files
 
 **Root `.env`:**
@@ -157,30 +161,12 @@ DEVICE_PRIVATE_KEY=98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f052
 
 ## Step 7: Start IPFS (Required)
 
-### Option A: Local IPFS Node
+### Use Didlab
+
+Update `backend/.env`:
 
 ```bash
-# Install IPFS (if not already installed)
-# macOS:
-brew install ipfs
-
-# Linux:
-# Download from https://ipfs.tech/install/
-
-# Initialize IPFS
-ipfs init
-
-# Start IPFS daemon (keep this running in a separate terminal)
-ipfs daemon
-```
-
-### Option B: Use Pinata (Alternative)
-
-If you don't want to run local IPFS, sign up at https://pinata.cloud and update `backend/.env`:
-
-```bash
-IPFS_URL=https://api.pinata.cloud
-PINATA_JWT=your_pinata_jwt_here
+IPFS_URL=https://ipfs.didlab.org/api/v0
 ```
 
 ---
