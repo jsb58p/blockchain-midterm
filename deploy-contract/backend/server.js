@@ -127,7 +127,7 @@ const batchHistory = []; // Store batch info for API queries
 
 // ===== Helper Functions =====
 function validateReading(reading) {
-  if (!reading.ts || !reading.temp || !reading.hum || !reading.sig) {
+  if (!reading.t || !reading.temp || !reading.hum || !reading.sig) {
     return false;
   }
   if (typeof reading.temp !== 'number' || typeof reading.hum !== 'number') {
@@ -139,7 +139,7 @@ function validateReading(reading) {
 async function verifySignature(reading, deviceAddress) {
   try {
     // Recreate the message that was signed
-    const message = `${reading.ts},${reading.temp},${reading.hum}`;
+    const message = `${reading.t},${reading.temp},${reading.hum}`;
     
     // Recover the signer's address
     const recoveredAddress = await recoverMessageAddress({
@@ -296,6 +296,13 @@ async function processBatches() {
         timestamp: now,
       };
 
+      const batchMessage = JSON.stringify(batchData);
+      const batchSig = await signMessage({
+        message: batchMessage,
+        privateKey: `0x${PRIVATE_KEY}`,
+      });
+      batchData.sig = batchSig;
+
       // Pin to IPFS
       const cid = await pinToIPFS(batchData);
       console.log(`  IPFS CID: ${cid}`);
@@ -353,7 +360,7 @@ async function handleBreach(deviceAddress, reading, breachType, traceTokenId, ba
     // Create breach report
     const breachReport = {
       device: deviceAddress,
-      timestamp: reading.ts,
+      timestamp: reading.t,
       reading: { temp: reading.temp, hum: reading.hum },
       rule: `Temperature must be between ${TEMP_MIN}°C and ${TEMP_MAX}°C`,
       breachType,

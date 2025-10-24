@@ -166,9 +166,21 @@ DEVICE_PRIVATE_KEY=98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f052
 DEVICE_PRIVATE_KEY=98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f05208e
 ```
 
+### Run Metadata Pin Script
+```bash
+cd backend
+node pin-device-metadata.js
+```
+
+### Update .env with CID
+Copy the CID output and add to `backend/.env`:
+```
+DEVICE_METADATA_CID=<CID from step 3>
+```
+
 ---
 
-## Step 7: Start IPFS (Required)
+## Step 7: Configure IPFS
 
 ### Use Didlab
 

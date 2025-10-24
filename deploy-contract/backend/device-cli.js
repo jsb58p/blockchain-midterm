@@ -49,7 +49,7 @@ function generateReading(forceBreach = false) {
   const humidity = (Math.random() * 20 + 50).toFixed(1); // 50-70%
 
   return {
-    ts: timestamp,
+    t: timestamp,
     temp: parseFloat(temp),
     hum: parseFloat(humidity),
   };
@@ -58,7 +58,7 @@ function generateReading(forceBreach = false) {
 // ===== Signing =====
 async function signReading(reading) {
   // Create message to sign
-  const message = `${reading.ts},${reading.temp},${reading.hum}`;
+  const message = `${reading.t},${reading.temp},${reading.hum}`;
   
   // Sign with device private key
   const signature = await signMessage({
