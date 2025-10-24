@@ -5,7 +5,7 @@
 - Node.js 18+ installed
 - Hardhat project set up
 - MetaMask with DIDLab network configured
-- Admin private key with ETH on DIDLab network
+- Admin private key with native TT (ETH) on DIDLab network
 
 ---
 
