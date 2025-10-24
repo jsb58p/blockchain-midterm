@@ -5,6 +5,7 @@ import { createPublicClient, createWalletClient, http, recoverMessageAddress } f
 import { privateKeyToAccount } from 'viem/accounts';
 import { create } from 'kubo-rpc-client';
 import dotenv from 'dotenv';
+import { signMessage } from 'viem/accounts';
 
 dotenv.config();
 
@@ -127,7 +128,7 @@ const batchHistory = []; // Store batch info for API queries
 
 // ===== Helper Functions =====
 function validateReading(reading) {
-  if (!reading.t || !reading.temp || !reading.hum || !reading.sig) {
+  if (reading.t === undefined || reading.temp === undefined || reading.hum === undefined || !reading.sig) {
     return false;
   }
   if (typeof reading.temp !== 'number' || typeof reading.hum !== 'number') {

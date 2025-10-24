@@ -181,6 +181,7 @@
       background: #5c1e1e;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -246,6 +247,8 @@
       <button class="tab" data-tab="batches">Batch History</button>
       <button class="tab" data-tab="breaches">Breaches</button>
       <button class="tab" data-tab="queue">Live Queue</button>
+      <button class="tab" data-tab="device-chart">Device Chart</button>
+      <button class="tab" data-tab="product-view">Product View</button>
     </div>
 
     <!-- TAB: DEVICES -->
@@ -340,7 +343,40 @@
         <div id="healthStatus"></div>
       </div>
     </div>
+    <!-- TAB: DEVICE CHART -->
+    <div id="tab-device-chart" class="tab-content">
+      <div class="card">
+        <h3>📊 Device Readings Chart</h3>
+        <div class="row">
+          <div>
+            <label>Device Address</label>
+            <input id="chartDeviceAddr" class="mono" placeholder="0x..." />
+          </div>
+          <button id="btnLoadChart" class="primary">Load Readings</button>
+        </div>
+        <div style="height: 400px; margin-top: 20px;">
+          <canvas id="deviceChart"></canvas>
+        </div>
+        <div id="chartStats" class="small muted" style="margin-top: 12px;"></div>
+      </div>
+    </div>
 
+    <!-- TAB: PRODUCT VIEW -->
+    <div id="tab-product-view" class="tab-content">
+      <div class="card">
+        <h3>📦 Product View (Trace Token)</h3>
+        <div class="row">
+          <div>
+            <label>Trace Token ID</label>
+            <input id="productViewId" type="number" placeholder="12345" />
+          </div>
+          <button id="btnLoadProduct" class="primary">Load Product</button>
+        </div>
+        <div id="productViewContent"></div>
+      </div>
+    </div>
+
+4. Add JavaS
     <!-- LOG -->
     <div class="card">
       <h3>Activity Log</h3>
@@ -671,8 +707,8 @@ async function loadDevices() {
       return;
     }
     
-    let html = "<table><thead><tr><th>Device</th><th>Owner</th><th>Trace Token ID</th><th>Status</th><th>Registered</th></tr></thead><tbody>";
-    
+    let html = "<table><thead><tr><th>Device</th><th>Owner</th><th>Trace Token ID</th><th>Status</th><th>Registered</th><th>Chart</th></tr></thead><tbody>";
+
     for (let i = 0; i < Number(total); i++) {
       const addr = await publicClient.readContract({
         address: deviceRegistryAddr,
@@ -697,6 +733,7 @@ async function loadDevices() {
         <td>${device.traceTokenId.toString()}</td>
         <td>${status}</td>
         <td>${date}</td>
+        <td><button class="small" onclick="document.getElementById('chartDeviceAddr').value='${addr}'; document.querySelector('[data-tab=device-chart]').click(); loadDeviceChart();">📊</button></td>
       </tr>`;
     }
     
@@ -940,6 +977,241 @@ document.querySelectorAll(".tab").forEach(tab => {
   });
 });
 
+// ===== Chart functions
+let deviceChartInstance = null;
+
+async function loadDeviceChart() {
+  try {
+    const deviceAddr = getAddress(el("chartDeviceAddr").value.trim());
+    
+    // Fetch batches from backend
+    const res = await fetch(`${apiUrl}/batches`);
+    const batches = await res.json();
+    
+    // Filter batches for this device
+    const deviceBatches = batches.filter(b => 
+      b.device.toLowerCase() === deviceAddr.toLowerCase()
+    );
+    
+    if (deviceBatches.length === 0) {
+      el("chartStats").innerHTML = "No data found for this device";
+      return;
+    }
+    
+    // Fetch IPFS data for each batch to get readings
+    let allReadings = [];
+    for (const batch of deviceBatches) {
+      try {
+        const ipfsRes = await fetch(`https://ipfs.io/ipfs/${batch.cid}`);
+        const batchData = await ipfsRes.json();
+        if (batchData.readings) {
+          allReadings = allReadings.concat(batchData.readings);
+        }
+      } catch (e) {
+        console.warn(`Failed to fetch IPFS data for ${batch.cid}`);
+      }
+    }
+    
+    if (allReadings.length === 0) {
+      el("chartStats").innerHTML = "No readings found in batches";
+      return;
+    }
+    
+    // Sort by timestamp
+    allReadings.sort((a, b) => a.t - b.t);
+    
+    // Prepare chart data
+    const labels = allReadings.map(r => new Date(r.t * 1000).toLocaleTimeString());
+    const temps = allReadings.map(r => r.temp);
+    const hums = allReadings.map(r => r.hum);
+    
+    // Destroy existing chart if any
+    if (deviceChartInstance) {
+      deviceChartInstance.destroy();
+    }
+    
+    // Create chart
+    const ctx = el("deviceChart").getContext("2d");
+    deviceChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Temperature (°C)',
+            data: temps,
+            borderColor: '#ff6b6b',
+            backgroundColor: 'rgba(255, 107, 107, 0.1)',
+            yAxisID: 'y',
+            tension: 0.4
+          },
+          {
+            label: 'Humidity (%)',
+            data: hums,
+            borderColor: '#4ecdc4',
+            backgroundColor: 'rgba(78, 205, 196, 0.1)',
+            yAxisID: 'y1',
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            labels: { color: '#e6eaf2' }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#8a9bb8' },
+            grid: { color: '#24314a' }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            title: { display: true, text: 'Temperature (°C)', color: '#e6eaf2' },
+            ticks: { color: '#ff6b6b' },
+            grid: { color: '#24314a' }
+          },
+          y1: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            title: { display: true, text: 'Humidity (%)', color: '#e6eaf2' },
+            ticks: { color: '#4ecdc4' },
+            grid: { drawOnChartArea: false }
+          }
+        }
+      }
+    });
+    
+    // Stats
+    const avgTemp = (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1);
+    const minTemp = Math.min(...temps).toFixed(1);
+    const maxTemp = Math.max(...temps).toFixed(1);
+    const breaches = temps.filter(t => t < 2 || t > 8).length;
+    
+    el("chartStats").innerHTML = `
+      📊 ${allReadings.length} readings | 
+      Avg: ${avgTemp}°C | 
+      Range: ${minTemp}°C - ${maxTemp}°C | 
+      Breaches: ${breaches}
+    `;
+    
+    logOk(`Loaded ${allReadings.length} readings for device chart`);
+  } catch (e) {
+    logErr("Chart load error: " + (e.message || e));
+  }
+}
+
+async function loadProductView() {
+  try {
+    const traceId = BigInt(el("productViewId").value);
+    const contentDiv = el("productViewContent");
+    contentDiv.innerHTML = "<p class='muted'>Loading...</p>";
+    
+    // Get devices for this product
+    const devices = await publicClient.readContract({
+      address: deviceRegistryAddr,
+      abi: DEVICE_REGISTRY_ABI,
+      functionName: "getDevicesByProduct",
+      args: [traceId]
+    });
+    
+    if (!devices || devices.length === 0) {
+      contentDiv.innerHTML = "<p class='muted'>No devices monitoring this product</p>";
+      return;
+    }
+    
+    // Get breaches for this product
+    const breachIds = await publicClient.readContract({
+      address: breachNFTAddr,
+      abi: BREACH_NFT_ABI,
+      functionName: "getBreachesByProduct",
+      args: [traceId]
+    });
+    
+    let html = `<h4>Product Trace Token #${traceId.toString()}</h4>`;
+    
+    // Status badge
+    if (!breachIds || breachIds.length === 0) {
+      html += `<div class="badge badge-good">✓ NO BREACHES DETECTED</div>`;
+    } else {
+      html += `<div class="badge badge-breach">⚠ ${breachIds.length} BREACH(ES) DETECTED</div>`;
+    }
+    
+    html += "<h4 style='margin-top: 20px;'>Monitoring Devices</h4>";
+    html += "<table><thead><tr><th>Device</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead><tbody>";
+    
+    for (const deviceAddr of devices) {
+      const device = await publicClient.readContract({
+        address: deviceRegistryAddr,
+        abi: DEVICE_REGISTRY_ABI,
+        functionName: "getDevice",
+        args: [deviceAddr]
+      });
+      
+      const status = device.active ? '<span class="ok">🟢 Active</span>' : '<span class="err">🔴 Inactive</span>';
+      
+      html += `<tr>
+        <td class="mono">${String(deviceAddr).slice(0, 16)}...</td>
+        <td class="mono">${String(device.owner).slice(0, 16)}...</td>
+        <td>${status}</td>
+        <td><button class="small" onclick="document.getElementById('chartDeviceAddr').value='${deviceAddr}'; document.querySelector('[data-tab=device-chart]').click(); loadDeviceChart();">View Chart</button></td>
+      </tr>`;
+    }
+    
+    html += "</tbody></table>";
+    
+    // Show breaches if any
+    if (breachIds && breachIds.length > 0) {
+      html += "<h4 style='margin-top: 20px;'>Breach History</h4>";
+      
+      for (const tokenId of breachIds) {
+        const breach = await publicClient.readContract({
+          address: breachNFTAddr,
+          abi: BREACH_NFT_ABI,
+          functionName: "getBreachInfo",
+          args: [tokenId]
+        });
+        
+        const date = new Date(Number(breach.timestamp) * 1000).toLocaleString();
+        const ipfsLink = String(breach.metadataURI).replace("ipfs://", "");
+        
+        html += `
+          <div class="breach-card" style="margin-top: 8px;">
+            <strong>Breach NFT #${tokenId.toString()}</strong> - ${breach.breachType}<br>
+            <span class="small">Device: ${String(breach.device).slice(0, 16)}... | ${date}</span><br>
+            <a href="https://ipfs.io/ipfs/${ipfsLink}" target="_blank">View Report →</a>
+          </div>
+        `;
+      }
+    }
+    
+    contentDiv.innerHTML = html;
+    logOk(`Loaded product view for trace token ${traceId.toString()}`);
+  } catch (e) {
+    logErr("Product view error: " + (e.message || e));
+    el("productViewContent").innerHTML = `<p class="err">Error: ${e.message}</p>`;
+  }
+}
+
+// Add missing ABI function for getDevicesByProduct
+DEVICE_REGISTRY_ABI.push({
+  type: 'function',
+  name: 'getDevicesByProduct',
+  stateMutability: 'view',
+  inputs: [{ name: 'traceTokenId', type: 'uint256' }],
+  outputs: [{ type: 'address[]' }]
+});
+
 // ===== Button wiring (essential)
 el("btnConnect").addEventListener("click", connect);
 el("btnLoad").addEventListener("click", loadContracts);
@@ -949,6 +1221,8 @@ el("btnLoadBatches").addEventListener("click", loadBatches);
 el("btnVerify").addEventListener("click", verifyBatch);
 el("btnLoadBreaches").addEventListener("click", loadBreaches);
 el("btnCheckProduct").addEventListener("click", checkProduct);
+el("btnLoadChart").addEventListener("click", loadDeviceChart);
+el("btnLoadProduct").addEventListener("click", loadProductView);
 
 // Start minimal periodic queue loader (bare minimum, 5s)
 queueInterval = setInterval(() => {

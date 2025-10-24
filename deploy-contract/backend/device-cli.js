@@ -77,7 +77,12 @@ async function sendReading(reading) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         deviceId: deviceAddress,
-        reading,
+        reading: {
+          t: reading.t,
+          temp: reading.temp,
+          hum: reading.hum,
+          sig: reading.sig,
+        }
       }),
     });
 
