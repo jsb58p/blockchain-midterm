@@ -1,9 +1,8 @@
-## System Flow Diagram
+# System Flow Diagram
 
-┌─────────────────────────────────────────────────────────────────────┐
-│                         PHASE 1: SETUP                              │
-└─────────────────────────────────────────────────────────────────────┘
+## PHASE 1: SETUP
 
+```
      Admin                    Blockchain                   Contracts
        │                          │                            │
        │  1. Deploy contracts     │                            │
@@ -17,12 +16,11 @@
        │                          │                            │
        │                          │<─── Device now active ─────│
        │                          │                            │
+```
 
+## PHASE 2: REAL-TIME OPERATION
 
-┌─────────────────────────────────────────────────────────────────────┐
-│                    PHASE 2: REAL-TIME OPERATION                     │
-└─────────────────────────────────────────────────────────────────────┘
-
+```
   IoT Device              Backend Server           Blockchain/IPFS
       │                         │                         │
       │ 1. Generate reading     │                         │
@@ -77,12 +75,11 @@
       │                         ├────────────────────────>│
       │                         │<─── NFT Token ID ────────│
       │                         │                         │
+```
 
+## DATA VERIFICATION FLOW
 
-┌─────────────────────────────────────────────────────────────────────┐
-│                      DATA VERIFICATION FLOW                         │
-└─────────────────────────────────────────────────────────────────────┘
-
+```
     Auditor/Consumer         Blockchain              IPFS
          │                       │                    │
          │ 1. Query product      │                    │
@@ -121,3 +118,4 @@
          │    - Signatures valid │                    │
          │    - Timestamps match │                    │
          │                       │                    │
+```
