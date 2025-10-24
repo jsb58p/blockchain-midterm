@@ -29,8 +29,7 @@ http://localhost:8000/index.html
 ### 2. Load Contracts
 - Enter your 3 contract addresses (DeviceRegistry, DataAnchor, BreachNFT)
 - Example: 
-<br>
-```
+```bash
 DeviceRegistry Address: 0xa631beb88abb91e32a2a6c5d338113acca158baa
 DataAnchor Address: 0x9467d25da30beb222c31d218830a8c87335f3f50
 BreachNFT Address: 0x085a1ec0d51f4541d81a442a0df4c9e9c70d7d1e
