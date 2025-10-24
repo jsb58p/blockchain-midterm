@@ -142,7 +142,7 @@ Example output:
 98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f05208e
 ```
 
-To get device address (for use in DApp):
+- To get device address (for use in DApp):
 
 ```
 node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='0xdevice_private_key'; console.log(privateKeyToAccount(pk).address)"
@@ -154,7 +154,7 @@ Example output:
 0xad5F4dE5BaC928535b6294945B547801E15C62F7
 ```
 
-### Add to Both `.env` Files
+### Add Device Private Key  to Both `.env` Files
 
 **Root `.env`:**
 ```bash
@@ -175,7 +175,7 @@ node pin-device-metadata.js
 ### Update .env with CID
 Copy the CID output and add to `backend/.env`:
 ```
-DEVICE_METADATA_CID=<CID from step 3>
+DEVICE_METADATA_CID=<CID_output>
 ```
 
 ---
