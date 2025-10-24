@@ -1,9 +1,25 @@
 # SensorSeal Frontend Quick Start
 
 ## Setup
-1. Open `index.html` in a browser
+
+# Starting the Webpage
+
 2. Have MetaMask installed
 
+Navigate to the directory with index.html:
+```bash
+cd /path/to/your/index.html
+```
+
+Start the web server:
+```bash
+python3 -m http.server 8000
+```
+
+Open in browser:
+```
+http://localhost:8000/index.html
+```
 ## Steps to Use
 
 ### 1. Connect Wallet
