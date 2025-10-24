@@ -286,8 +286,7 @@ curl http://localhost:3000/batches
 - Verify device address matches in both `.env` files
 
 ### "IPFS pin error"
-- Make sure `ipfs daemon` is running (Step 7)
-- Or switch to Pinata configuration
+- Make sure the IPFS is running (Step 7)
 
 ### "Invalid signature"
 - Ensure `DEVICE_PRIVATE_KEY` is the same in both `.env` files
