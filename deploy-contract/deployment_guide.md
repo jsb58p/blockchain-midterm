@@ -148,6 +148,12 @@ To get device address (for use in DApp):
 node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='device_private_key'; console.log(privateKeyToAccount(pk).address)"
 ```
 
+Example output:
+
+```
+0xad5F4dE5BaC928535b6294945B547801E15C62F7
+```
+
 ### Add to Both `.env` Files
 
 **Root `.env`:**
@@ -331,9 +337,6 @@ npx hardhat run scripts/deploy-group4.ts --network didlab
 
 # Register device
 npx hardhat run scripts/register-device.ts --network didlab
-
-# Start IPFS
-ipfs daemon
 
 # Start backend
 cd backend && npm start
