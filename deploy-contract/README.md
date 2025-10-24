@@ -388,22 +388,11 @@ deploy-contract/
 
 ---
 
-## Next Steps
-
-1. ✅ Deploy contracts
-2. ✅ Register device
-3. ✅ Start backend & device simulator
-4. 🔲 Build frontend dashboard
-5. 🔲 Add monitoring/alerts
-6. 🔲 Deploy to production
-
----
-
 ## Support
 
 For issues, check:
 1. All `.env` files have correct values
-2. IPFS daemon is running
+2. IPFS is running
 3. Contract addresses match deployment output
 4. Device is registered on-chain
 5. Admin account has enough ETH
