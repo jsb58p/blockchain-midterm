@@ -4,7 +4,7 @@
 
 # Starting the Webpage
 
-2. Have MetaMask installed
+- Have MetaMask installed
 
 Navigate to the directory with index.html:
 ```bash
