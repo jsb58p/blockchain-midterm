@@ -371,8 +371,13 @@
         <div id="chartStats" class="small muted" style="margin-top: 12px;"></div>
         <div id="chartStats" class="small muted" style="margin-top: 12px;"></div>
         <div id="chartPagination" style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+          <button id="btnChartFirst">|&lt;&lt; Newest</button>
+          <button id="btnChartPrev10">&lt;&lt; -10</button>
           <button id="btnChartPrev">← Newer</button>
+          <span id="chartPageInfo" class="small muted"></span>
           <button id="btnChartNext">Older →</button>
+          <button id="btnChartNext10">+10 &gt;&gt;</button>
+          <button id="btnChartLast">Oldest &gt;&gt;|</button>
         </div>
       </div>
     </div>
@@ -1205,12 +1210,12 @@ async function loadChartPage(page) {
     
     const totalPages = Math.ceil(totalReadingsCount / READINGS_PER_PAGE);
     el("chartStats").innerHTML = `
-      Page ${page} of ~${totalPages} | 
       ${readings.length} readings | 
       Avg: ${avgTemp}°C | 
       Range: ${minTemp}°C - ${maxTemp}°C | 
       Breaches: ${breaches}
-    `;
+`     ;
+el("chartPageInfo").textContent = `Page ${page} of ~${totalPages}`;
     
     currentReadingsPage = page;
     
@@ -1346,6 +1351,13 @@ el("btnChartNext").addEventListener("click", () => {
 });
 el("btnLoadProduct").addEventListener("click", loadProductView);
 el("btnLoadProduct").addEventListener("click", loadProductView);
+el("btnChartFirst").addEventListener("click", () => loadChartPage(1));
+el("btnChartPrev10").addEventListener("click", () => loadChartPage(Math.max(1, currentReadingsPage - 10)));
+el("btnChartNext10").addEventListener("click", () => loadChartPage(currentReadingsPage + 10));
+el("btnChartLast").addEventListener("click", () => {
+  const totalPages = Math.ceil(totalReadingsCount / READINGS_PER_PAGE);
+  loadChartPage(totalPages);
+});
 
 // Start minimal periodic queue loader (bare minimum, 5s)
 queueInterval = setInterval(() => {
