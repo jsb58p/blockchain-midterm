@@ -288,12 +288,12 @@
       </div>
     </div>
 
-    <!-- TAB: BATCH HISTORY -->
+<!-- TAB: BATCH HISTORY -->
     <div id="tab-batches" class="tab-content">
       <div class="card">
         <h3>Batch History</h3>
         <div class="row">
-          <button id="btnLoadBatches" class="primary" style="flex: 0 0 50%">Load Batches</button>
+          <button id="btnLoadBatches" class="primary" style="flex: 0 0 50%">Load Batches from Blockchain</button>
         </div>
         <div id="batchPagination" style="display: none; align-items: center; gap: 8px; margin-top: 8px;">
           <button id="btnBatchFirst">|&lt;&lt;</button>
@@ -308,15 +308,29 @@
       </div>
       
       <div class="card">
-        <h3>Verify Batch Integrity</h3>
+        <h3>View & Verify Batch</h3>
+        <p class="muted small">View on-chain batch data and optionally verify IPFS content</p>
         <div class="row">
           <div>
             <label>Batch ID</label>
-            <input id="verifyBatchId" type="number" placeholder="0" />
+            <input id="verifyBatchId" type="number" placeholder="1036" />
           </div>
-          <button id="btnVerify" class="primary">🔍 Verify Hash</button>
+          <button id="btnViewBatch" class="primary">🔍 View Batch</button>
         </div>
         <div id="verifyResult"></div>
+        
+        <div id="verifyCIDSection" style="display: none; margin-top: 16px; padding-top: 16px; border-top: 1px solid #24314a;">
+          <h4>Verify IPFS Content</h4>
+          <p class="muted small">Enter the IPFS CID to verify it matches the on-chain hash and view the data</p>
+          <div class="row">
+            <div style="flex: 3;">
+              <label>IPFS CID</label>
+              <input id="verifyCID" placeholder="QmYPdZ..." class="mono" />
+            </div>
+            <button id="btnVerifyCID" class="primary" style="flex: 0 0 auto;">✓ Verify & Load Data</button>
+          </div>
+          <div id="cidVerifyResult"></div>
+        </div>
       </div>
     </div>
 
@@ -493,6 +507,17 @@ const DATA_ANCHOR_ABI = [
     stateMutability: 'view',
     inputs: [],
     outputs: [{ type: 'uint256' }]
+  },
+  {
+    type: 'event',
+    name: 'BatchCommitted',
+    inputs: [
+      { name: 'batchId', type: 'uint256', indexed: true },
+      { name: 'device', type: 'address', indexed: true },
+      { name: 'cidHash', type: 'bytes32', indexed: false },
+      { name: 'windowStart', type: 'uint64', indexed: false },
+      { name: 'windowEnd', type: 'uint64', indexed: false }
+    ]
   }
 ];
 
@@ -885,10 +910,10 @@ async function verifyBatch() {
   }
   const batchId = BigInt(batchIdRaw);
   const resultDiv = el("verifyResult");
-  resultDiv.innerHTML = "<p class='muted'>Verifying...</p>";
+  resultDiv.innerHTML = "<p class='muted'>Loading batch from blockchain...</p>";
   
   try {
-    // Get on-chain batch
+    // Get on-chain batch data
     const batch = await publicClient.readContract({
       address: dataAnchorAddr,
       abi: DATA_ANCHOR_ABI,
@@ -896,48 +921,199 @@ async function verifyBatch() {
       args: [batchId]
     });
     
-    // Fetch CID directly from backend using device and timestamp
-    const res = await fetch(`${apiUrl}/batches`);
-    const batches = await res.json();
-    const device = String(batch.device).toLowerCase();
-    const blockNum = batch.blockNumber.toString();
+    const start = new Date(Number(batch.windowStart) * 1000).toLocaleString();
+    const end = new Date(Number(batch.windowEnd) * 1000).toLocaleString();
     
-    const batchData = batches.find(b => 
-      String(b.device).toLowerCase() === device && 
-      b.blockNumber === blockNum
-    );
-    
-    if (!batchData || !batchData.cid) {
-      resultDiv.innerHTML = '<div class="verify-result error">⚠ Cannot verify: CID not found in backend</div>';
-      return;
-    }
-    
-    // Compute hash of CID
-    const computedHash = keccak256(toHex(batchData.cid));
-    
-    // Compare
-    if (String(computedHash).toLowerCase() === String(batch.cidHash).toLowerCase()) {
-      resultDiv.innerHTML = `
-        <div class="verify-result success">
-          <h4>✅ VERIFIED</h4>
-          <p><strong>CID:</strong> ${batchData.cid}</p>
-          <p><strong>Hash Match:</strong> ${computedHash}</p>
-          <p><strong>Device:</strong> ${batch.device}</p>
-          <p><strong>Timestamp:</strong> ${new Date(Number(batch.timestamp) * 1000).toLocaleString()}</p>
-          <p><a href="https://ipfs.io/ipfs/${batchData.cid}" target="_blank">View on IPFS →</a></p>
+    resultDiv.innerHTML = `
+      <div class="verify-result success">
+        <h4>📦 Batch #${batchId.toString()}</h4>
+        <div class="kvs">
+          <div class="muted">Device</div>
+          <div class="mono">${batch.device}</div>
+          
+          <div class="muted">CID Hash (on-chain)</div>
+          <div class="mono small">${batch.cidHash}</div>
+          
+          <div class="muted">Time Window</div>
+          <div class="small">${start}<br>to ${end}</div>
+          
+          <div class="muted">Committed At</div>
+          <div>${new Date(Number(batch.timestamp) * 1000).toLocaleString()}</div>
+          
+          <div class="muted">Block Number</div>
+          <div>${batch.blockNumber.toString()}</div>
         </div>
-      `;
-    } else {
-      resultDiv.innerHTML = `
-        <div class="verify-result error">
-          <h4>⚠ TAMPERING DETECTED</h4>
-          <p><strong>Expected:</strong> ${batch.cidHash}</p>
-          <p><strong>Computed:</strong> ${computedHash}</p>
-        </div>
-      `;
-    }
+      </div>
+    `;
+    
+    // Show CID verification section
+    el("verifyCIDSection").style.display = "block";
+    
+    // Store current batch for verification
+    window.currentBatch = batch;
+    window.currentBatchId = batchId;
+    
   } catch (e) {
     resultDiv.innerHTML = `<div class="verify-result error">Error: ${e.message}</div>`;
+    el("verifyCIDSection").style.display = "none";
+  }
+}
+
+async function verifyCID() {
+  const cid = el("verifyCID").value.trim();
+  const resultDiv = el("cidVerifyResult");
+  
+  if (!cid) {
+    resultDiv.innerHTML = `<div class="verify-result error">Please enter a CID</div>`;
+    return;
+  }
+  
+  if (!window.currentBatch) {
+    resultDiv.innerHTML = `<div class="verify-result error">Please load a batch first</div>`;
+    return;
+  }
+  
+  resultDiv.innerHTML = "<p class='muted'>Verifying CID and fetching from IPFS...</p>";
+  
+  try {
+    // Resolve device & pinned device CID from on-chain batch, then find batch CID in backend and verify
+    const batchOnChain = window.currentBatch;
+    const batchId = window.currentBatchId;
+    const deviceAddress = String(batchOnChain.device);
+    // Get device metadata CID from DeviceRegistry
+    const deviceInfo = await publicClient.readContract({
+      address: deviceRegistryAddr,
+      abi: DEVICE_REGISTRY_ABI,
+      functionName: "getDevice",
+      args: [deviceAddress]
+    });
+    const pinnedDeviceCID = String(deviceInfo.metadataCID).trim();
+
+    // Fetch backend batch list and find the entry for this on-chain batch (match by blockNumber or txHash)
+    const batchesRes = await fetch(`${apiUrl}/batches`);
+    if (!batchesRes.ok) throw new Error('Failed to fetch backend batches');
+    const batchesList = await batchesRes.json();
+    const matched = batchesList.find(b =>
+      String(b.blockNumber) === String(batchOnChain.blockNumber) ||
+      String(b.txHash).toLowerCase() === (String(batchOnChain.txHash || '')).toLowerCase()
+    );
+    if (!matched) {
+      resultDiv.innerHTML = `<div class="verify-result error"><h4>⚠️ Unable to locate batch CID in backend for this on-chain batch</h4></div>`;
+      return;
+    }
+    const batchCid = String(matched.cid).trim();
+
+    // Compute keccak256 over the batch CID's UTF-8 bytes (matches backend toHex(cid))
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(batchCid);
+    const hex = '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    const computedHash = keccak256(hex).toLowerCase();
+
+    // Compare with on-chain value
+    const onChainHash = String(batchOnChain.cidHash).toLowerCase();
+    if (computedHash !== onChainHash) {
+      resultDiv.innerHTML = `
+        <div class="verify-result error">
+          <h4>⚠️ HASH MISMATCH</h4>
+          <p class="small">On-chain cidHash: <span class="mono">${onChainHash}</span></p>
+          <p class="small">Computed from backend CID (${batchCid}): <span class="mono">${computedHash}</span></p>
+        </div>
+      `;
+      return;
+    }
+
+    // At this point batchCid is verified against on-chain hash — show the pinned device CID and proceed
+    resultDiv.innerHTML = `
+      <div class="verify-result success">
+        <h4>✓ Batch CID verified</h4>
+        <div class="kvs">
+          <div class="muted">Device (on-chain)</div><div class="mono">${deviceAddress}</div>
+          <div class="muted">Pinned Device Metadata CID</div><div class="mono">${pinnedDeviceCID}</div>
+          <div class="muted">Batch CID (backend)</div><div class="mono">${batchCid}</div>
+        </div>
+      </div>
+    `;
+
+    
+    // Fetch from IPFS
+    const ipfsRes = await fetch(`https://ipfs.io/ipfs/${cid}`);
+    if (!ipfsRes.ok) {
+      throw new Error(`IPFS fetch failed: ${ipfsRes.statusText}`);
+    }
+    
+    const batchData = await ipfsRes.json();
+    
+    // Display verified data
+    resultDiv.innerHTML = `
+      <div class="verify-result success">
+        <h4>✅ VERIFIED - CID MATCHES ON-CHAIN HASH</h4>
+        
+        <p><strong>IPFS CID:</strong> <span class="mono">${cid}</span></p>
+        <p><a href="https://ipfs.io/ipfs/${cid}" target="_blank">View on IPFS →</a></p>
+        
+        <div style="margin-top: 12px;">
+          <strong>Batch Contents:</strong>
+          <div class="kvs" style="margin-top: 8px;">
+            <div class="muted">Device</div>
+            <div class="mono">${batchData.device}</div>
+            
+            <div class="muted">Readings Count</div>
+            <div>${batchData.count || batchData.readings?.length || 0}</div>
+            
+            <div class="muted">Window</div>
+            <div class="small">
+              ${
+                batchData.window
+                  ? `${new Date(batchData.window.start * 1000).toLocaleString()}<br>to ${new Date(batchData.window.end * 1000).toLocaleString()}`
+                  : "Not available in IPFS data"
+              }
+            </div>
+
+          </div>
+        </div>
+        
+        ${batchData.readings ? `
+          <details style="margin-top: 12px;">
+            <summary style="cursor: pointer; font-weight: 600;">📊 View Readings (${batchData.readings.length})</summary>
+            <div style="max-height: 300px; overflow-y: auto; margin-top: 8px;">
+              <table class="small">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Temp (°C)</th>
+                    <th>Humidity (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${batchData.readings.slice(0, 50).map(r => `
+                    <tr>
+                      <td>${new Date(r.t * 1000).toLocaleTimeString()}</td>
+                      <td>${r.temp}</td>
+                      <td>${r.hum}</td>
+                    </tr>
+                  `).join('')}
+                  ${batchData.readings.length > 50 ? `
+                    <tr><td colspan="3" class="muted">... and ${batchData.readings.length - 50} more</td></tr>
+                  ` : ''}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ` : ''}
+      </div>
+    `;
+    
+    logOk(`✓ Batch verified and loaded from IPFS`);
+    
+  } catch (e) {
+    resultDiv.innerHTML = `
+      <div class="verify-result error">
+        <h4>Error Loading from IPFS</h4>
+        <p>${e.message}</p>
+        <p class="small muted">The hash may match, but the content could not be retrieved from IPFS.</p>
+      </div>
+    `;
+    logErr("IPFS fetch error: " + e.message);
   }
 }
 
@@ -1342,7 +1518,9 @@ el("btnBatchPrev10").addEventListener("click", () => loadBatchPage(currentBatchP
 el("btnBatchPrev").addEventListener("click", () => loadBatchPage(currentBatchPage - 1));
 el("btnBatchNext").addEventListener("click", () => loadBatchPage(currentBatchPage + 1));
 el("btnBatchNext10").addEventListener("click", () => loadBatchPage(currentBatchPage + 10));
-el("btnBatchLast").addEventListener("click", () => loadBatchPage(Math.ceil(totalBatchCount / BATCHES_PER_PAGE)));el("btnVerify").addEventListener("click", verifyBatch);
+el("btnBatchLast").addEventListener("click", () => loadBatchPage(Math.ceil(totalBatchCount / BATCHES_PER_PAGE)));
+el("btnViewBatch").addEventListener("click", verifyBatch);
+el("btnVerifyCID").addEventListener("click", verifyCID);
 el("btnLoadBreaches").addEventListener("click", loadBreaches);
 el("btnCheckProduct").addEventListener("click", checkProduct);
 el("btnLoadChart").addEventListener("click", loadDeviceChart);
