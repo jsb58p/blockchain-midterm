@@ -139,7 +139,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 Example output:
 
 ```
-98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f05208e
+82f7ddeba3338feea17c009f44745b90fc9ced654119d52586036268915d4adb
 ```
 
 - To get device address (for use in DApp):
@@ -151,25 +151,29 @@ node -e "const {privateKeyToAccount} = require('viem/accounts'); const pk='0xdev
 Example output:
 
 ```
-0xad5F4dE5BaC928535b6294945B547801E15C62F7
+0x4e16bCa391C7BD10Cb91959980722467a7D435c4
 ```
 
 ### Add Device Private Key  to Both `.env` Files
 
 **Root `.env`:**
 ```bash
-DEVICE_PRIVATE_KEY=98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f05208e
+DEVICE_PRIVATE_KEY=82f7ddeba3338feea17c009f44745b90fc9ced654119d52586036268915d4adb
 ```
 
 **Backend `.env`:**
 ```bash
-DEVICE_PRIVATE_KEY=98dba42b1650f578a33418ba6aeb48ea7a5681b156b1e970a0184ca52f05208e
+DEVICE_PRIVATE_KEY=82f7ddeba3338feea17c009f44745b90fc9ced654119d52586036268915d4adb
 ```
 
 ### Run Metadata Pin Script
 ```bash
 cd backend
 node pin-device-metadata.js
+```
+Example output:
+```
+DEVICE_METADATA_CID=QmayB4UxsQMpyJyr2R1DFFvE3XvkxhJFTZJSak5NjUksEu
 ```
 
 ### Update .env with CID
@@ -194,6 +198,7 @@ IPFS_URL=https://ipfs.didlab.org/api/v0
 
 ## Step 8: Register Device On-Chain
 
+Run `register-device.ts` in scripts directory:
 ```bash
 npx hardhat run scripts/register-device.ts --network didlab
 ```
@@ -202,7 +207,10 @@ Expected output:
 ```
 ✓ Device is now ACTIVE and can send readings!
 ```
-
+Update root `.env` and `backend/.env`:
+```bash
+DEVICE_PRIVATE_KEY=d0a71f912c218093137b2d585d6e7d23531542309af1c60354a06fce4c851bcf
+```
 If you see `⚠️ Device registration may have failed`, verify that:
 - Contract addresses in root `.env` match the deployed addresses
 - You have enough ETH for gas

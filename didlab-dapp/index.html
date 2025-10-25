@@ -647,6 +647,7 @@ async function loadContracts() {
     logOk(`✓ Loaded contracts`);
     await checkBackend();
     await refresh();
+    await loadDevices();
   } catch (e) {
     logErr("Load contracts error: " + (e.message || e));
   }

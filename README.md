@@ -29,7 +29,7 @@
       │ 2. Sign with private    │                         │
       │    key (ECDSA)          │                         │
       │                         │                         │
-      │ 3. POST /ingest        │                         │
+      │ 3. POST /ingest         │                         │
       ├────────────────────────>│                         │
       │                         │                         │
       │                         │ 4. Verify signature     │
@@ -49,31 +49,31 @@
       │                         │ 7. Create batch JSON    │
       │                         │    {device, readings[]} │
       │                         │                         │
-      │                         │ 8. Pin to IPFS         │
+      │                         │ 8. Pin to IPFS          │
       │                         ├────────────────────────>│
       │                         │<─── CID: QmXyZ789... ───│
       │                         │                         │
-      │                         │ 9. Hash CID            │
-      │                         │    keccak256(CID)      │
+      │                         │ 9. Hash CID             │
+      │                         │    keccak256(CID)       │
       │                         │                         │
-      │                         │ 10. commitBatch()      │
+      │                         │ 10. commitBatch()       │
       │                         ├────────────────────────>│
       │                         │    (cidHash, window)    │
       │                         │                         │
       │                         │<─── Batch ID ───────────│
       │                         │                         │
       │                         │ 11. Check for breaches  │
-      │                         │     (temp < 2 or > 8)  │
+      │                         │     (temp < 2 or > 8)   │
       │                         │                         │
       │                         │ 12. IF BREACH:          │
       │                         │     - Create report     │
-      │                         │     - Pin to IPFS      │
+      │                         │     - Pin to IPFS       │
       │                         ├────────────────────────>│
-      │                         │<─── Report CID ──────────│
+      │                         │<─── Report CID ─────────│
       │                         │                         │
-      │                         │ 13. mint(BreachNFT)    │
+      │                         │ 13. mint(BreachNFT)     │
       │                         ├────────────────────────>│
-      │                         │<─── NFT Token ID ────────│
+      │                         │<─── NFT Token ID ───────│
       │                         │                         │
 ```
 
