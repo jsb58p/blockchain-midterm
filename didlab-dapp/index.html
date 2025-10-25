@@ -292,17 +292,17 @@
     <div id="tab-batches" class="tab-content">
       <div class="card">
         <h3>Batch History</h3>
-        <div class="row" style="align-items: center; gap: 12px;">
-          <button id="btnLoadBatches">Load Batches</button>
-          <div id="batchPagination" style="display: none; align-items: center; gap: 8px;">
-            <button id="btnBatchFirst">|&lt;&lt;</button>
-            <button id="btnBatchPrev10">&lt;&lt;</button>
-            <button id="btnBatchPrev">&lt;</button>
-            <span id="batchPageInfo" class="small muted"></span>
-            <button id="btnBatchNext">&gt;</button>
-            <button id="btnBatchNext10">&gt;&gt;</button>
-            <button id="btnBatchLast">&gt;&gt;|</button>
-          </div>
+        <div class="row">
+          <button id="btnLoadBatches" class="primary" style="flex: 0 0 50%">Load Batches</button>
+        </div>
+        <div id="batchPagination" style="display: none; align-items: center; gap: 8px; margin-top: 8px;">
+          <button id="btnBatchFirst">|&lt;&lt;</button>
+          <button id="btnBatchPrev10">&lt;&lt;</button>
+          <button id="btnBatchPrev">&lt;</button>
+          <span id="batchPageInfo" class="small muted"></span>
+          <button id="btnBatchNext">&gt;</button>
+          <button id="btnBatchNext10">&gt;&gt;</button>
+          <button id="btnBatchLast">&gt;&gt;|</button>
         </div>
         <div id="batchesTable"></div>
       </div>
