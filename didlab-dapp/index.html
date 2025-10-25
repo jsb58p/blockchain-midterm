@@ -397,7 +397,7 @@
       </div>
     </div>
 
-4. Add JavaS
+
     <!-- LOG -->
     <div class="card">
       <h3>Activity Log</h3>
@@ -896,18 +896,23 @@ async function verifyBatch() {
       args: [batchId]
     });
     
-    // Get backend batches to find CID
+    // Fetch CID directly from backend using device and timestamp
     const res = await fetch(`${apiUrl}/batches`);
     const batches = await res.json();
-    const batchData = batches.find(b => b.blockNumber === batch.blockNumber.toString());
+    const device = String(batch.device).toLowerCase();
+    const blockNum = batch.blockNumber.toString();
     
-    if (!batchData) {
-      resultDiv.innerHTML = '<div class="verify-result error">⚠ Batch found on-chain but not in backend history</div>';
+    const batchData = batches.find(b => 
+      String(b.device).toLowerCase() === device && 
+      b.blockNumber === blockNum
+    );
+    
+    if (!batchData || !batchData.cid) {
+      resultDiv.innerHTML = '<div class="verify-result error">⚠ Cannot verify: CID not found in backend</div>';
       return;
     }
     
     // Compute hash of CID
-    const { keccak256, toHex } = await import('https://esm.sh/viem@2.37.5');
     const computedHash = keccak256(toHex(batchData.cid));
     
     // Compare
