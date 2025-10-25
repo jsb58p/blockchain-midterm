@@ -369,6 +369,11 @@
           <canvas id="deviceChart"></canvas>
         </div>
         <div id="chartStats" class="small muted" style="margin-top: 12px;"></div>
+        <div id="chartStats" class="small muted" style="margin-top: 12px;"></div>
+        <div id="chartPagination" style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+          <button id="btnChartPrev">← Newer</button>
+          <button id="btnChartNext">Older →</button>
+        </div>
       </div>
     </div>
 
@@ -548,11 +553,14 @@ const totalDevicesEl = el("totalDevices");
 const totalBatchesEl = el("totalBatches");
 const totalBreachesEl = el("totalBreaches");
 const txlog = el("txlog");
-
+const READINGS_PER_PAGE = 50; // Adjust as needed
 // ===== State
 let chain, deviceRegistryAddr, dataAnchorAddr, breachNFTAddr, apiUrl;
 let walletClient, publicClient, account;
 let queueInterval;
+let currentReadingsPage = 1;
+let totalReadingsCount = 0;
+let deviceBatchesForChart = [];
 
 // ===== Load/save prefs
 const saved = JSON.parse(localStorage.getItem("sensorseal-ui") || "{}");
@@ -1033,53 +1041,101 @@ async function loadDeviceChart() {
   try {
     const deviceAddr = getAddress(el("chartDeviceAddr").value.trim());
     
-    // Fetch batches from backend
+    // Fetch batch metadata only
     const res = await fetch(`${apiUrl}/batches`);
     const batches = await res.json();
     
-    // Filter batches for this device
-    const deviceBatches = batches.filter(b => 
+    deviceBatchesForChart = batches.filter(b => 
       b.device.toLowerCase() === deviceAddr.toLowerCase()
-    );
+    ).sort((a, b) => b.timestamp - a.timestamp); // Newest first
     
-    if (deviceBatches.length === 0) {
+    if (deviceBatchesForChart.length === 0) {
       el("chartStats").innerHTML = "No data found for this device";
       return;
     }
     
-    // Fetch IPFS data for each batch to get readings
-    let allReadings = [];
-    for (const batch of deviceBatches) {
-      try {
-        const ipfsRes = await fetch(`https://ipfs.io/ipfs/${batch.cid}`);
-        const batchData = await ipfsRes.json();
-        if (batchData.readings) {
-          allReadings = allReadings.concat(batchData.readings);
-        }
-      } catch (e) {
-        console.warn(`Failed to fetch IPFS data for ${batch.cid}`);
+    // Count total readings without fetching IPFS
+    totalReadingsCount = deviceBatchesForChart.length * 10; // Estimate, will refine
+    currentReadingsPage = 1;
+    
+    await loadChartPage(1);
+    
+  } catch (e) {
+    logErr("Chart load error: " + (e.message || e));
+  }
+}
+
+async function loadChartPage(page) {
+  try {
+    // Calculate which batches we need
+    const skip = (page - 1) * READINGS_PER_PAGE;
+    let readingsNeeded = READINGS_PER_PAGE;
+    let readingsSkipped = 0;
+    let batchIdx = 0;
+    
+    // Figure out which batches to fetch
+    const batchesToFetch = [];
+    while (readingsNeeded > 0 && batchIdx < deviceBatchesForChart.length) {
+      batchesToFetch.push(deviceBatchesForChart[batchIdx]);
+      batchIdx++;
+      // Assume ~10 readings per batch for estimation
+      if (readingsSkipped < skip) {
+        readingsSkipped += 10;
+      } else {
+        readingsNeeded -= 10;
       }
     }
     
-    if (allReadings.length === 0) {
-      el("chartStats").innerHTML = "No readings found in batches";
+    // Fetch all needed batches in parallel
+    const batchPromises = batchesToFetch.map(batch =>
+      fetch(`https://ipfs.io/ipfs/${batch.cid}`)
+        .then(r => r.json())
+        .catch(() => null)
+    );
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Collect readings
+    let readings = [];
+    readingsSkipped = 0;
+    const skipTarget = (page - 1) * READINGS_PER_PAGE;
+    
+    for (const batchData of batchResults) {
+      if (!batchData || !batchData.readings) continue;
+      
+      if (readingsSkipped < skipTarget) {
+        const toSkip = Math.min(batchData.readings.length, skipTarget - readingsSkipped);
+        readingsSkipped += toSkip;
+        
+        if (readingsSkipped >= skipTarget) {
+          readings = readings.concat(batchData.readings.slice(toSkip));
+        }
+      } else {
+        readings = readings.concat(batchData.readings);
+      }
+      
+      if (readings.length >= READINGS_PER_PAGE) break;
+    }
+    
+    // Trim to page size
+    readings = readings.slice(0, READINGS_PER_PAGE);
+    
+    if (readings.length === 0) {
+      el("chartStats").innerHTML = "No readings found";
       return;
     }
     
-    // Sort by timestamp
-    allReadings.sort((a, b) => a.t - b.t);
+    // Sort chronologically for display
+    readings.sort((a, b) => a.t - b.t);
     
-    // Prepare chart data
-    const labels = allReadings.map(r => new Date(r.t * 1000).toLocaleTimeString());
-    const temps = allReadings.map(r => r.temp);
-    const hums = allReadings.map(r => r.hum);
+    // Render chart
+    const labels = readings.map(r => new Date(r.t * 1000).toLocaleTimeString());
+    const temps = readings.map(r => r.temp);
+    const hums = readings.map(r => r.hum);
     
-    // Destroy existing chart if any
     if (deviceChartInstance) {
       deviceChartInstance.destroy();
     }
     
-    // Create chart
     const ctx = el("deviceChart").getContext("2d");
     deviceChartInstance = new Chart(ctx, {
       type: 'line',
@@ -1147,16 +1203,20 @@ async function loadDeviceChart() {
     const maxTemp = Math.max(...temps).toFixed(1);
     const breaches = temps.filter(t => t < 2 || t > 8).length;
     
+    const totalPages = Math.ceil(totalReadingsCount / READINGS_PER_PAGE);
     el("chartStats").innerHTML = `
-      📊 ${allReadings.length} readings | 
+      Page ${page} of ~${totalPages} | 
+      ${readings.length} readings | 
       Avg: ${avgTemp}°C | 
       Range: ${minTemp}°C - ${maxTemp}°C | 
       Breaches: ${breaches}
     `;
     
-    logOk(`Loaded ${allReadings.length} readings for device chart`);
+    currentReadingsPage = page;
+    
+    logOk(`Loaded chart page ${page}`);
   } catch (e) {
-    logErr("Chart load error: " + (e.message || e));
+    logErr("Chart page error: " + (e.message || e));
   }
 }
 
@@ -1276,6 +1336,15 @@ el("btnBatchLast").addEventListener("click", () => loadBatchPage(Math.ceil(total
 el("btnLoadBreaches").addEventListener("click", loadBreaches);
 el("btnCheckProduct").addEventListener("click", checkProduct);
 el("btnLoadChart").addEventListener("click", loadDeviceChart);
+el("btnChartPrev").addEventListener("click", () => {
+  if (currentReadingsPage > 1) {
+    loadChartPage(currentReadingsPage - 1);
+  }
+});
+el("btnChartNext").addEventListener("click", () => {
+  loadChartPage(currentReadingsPage + 1);
+});
+el("btnLoadProduct").addEventListener("click", loadProductView);
 el("btnLoadProduct").addEventListener("click", loadProductView);
 
 // Start minimal periodic queue loader (bare minimum, 5s)
