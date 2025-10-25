@@ -292,7 +292,18 @@
     <div id="tab-batches" class="tab-content">
       <div class="card">
         <h3>Batch History</h3>
-        <button id="btnLoadBatches">Load Batches from Backend</button>
+        <div class="row" style="align-items: center; gap: 12px;">
+          <button id="btnLoadBatches">Load Batches</button>
+          <div id="batchPagination" style="display: none; align-items: center; gap: 8px;">
+            <button id="btnBatchFirst">|&lt;&lt;</button>
+            <button id="btnBatchPrev10">&lt;&lt;</button>
+            <button id="btnBatchPrev">&lt;</button>
+            <span id="batchPageInfo" class="small muted"></span>
+            <button id="btnBatchNext">&gt;</button>
+            <button id="btnBatchNext10">&gt;&gt;</button>
+            <button id="btnBatchLast">&gt;&gt;|</button>
+          </div>
+        </div>
         <div id="batchesTable"></div>
       </div>
       
@@ -773,6 +784,11 @@ async function registerDevice() {
 }
 
 // ===== Batch functions
+// ===== Batch functions with pagination
+const BATCHES_PER_PAGE = 20;
+let currentBatchPage = 1;
+let totalBatchCount = 0;
+
 async function loadBatches() {
   try {
     const total = await publicClient.readContract({
@@ -781,15 +797,35 @@ async function loadBatches() {
       functionName: "getTotalBatches"
     });
     
-    if (total === 0n) {
+    totalBatchCount = Number(total);
+    
+    if (totalBatchCount === 0) {
       el("batchesTable").innerHTML = "<p class='muted'>No batches committed yet.</p>";
+      el("batchPagination").style.display = "none";
       return;
     }
     
+    currentBatchPage = 1;
+    el("batchPagination").style.display = "flex";
+    await loadBatchPage(currentBatchPage);
+  } catch (e) {
+    logErr("Failed to load batches: " + (e.message || e));
+  }
+}
+
+async function loadBatchPage(page) {
+  try {
+    const totalPages = Math.ceil(totalBatchCount / BATCHES_PER_PAGE);
+    currentBatchPage = Math.max(1, Math.min(page, totalPages));
+    
+    // Calculate indices (newest first)
+    const endIndex = totalBatchCount - (currentBatchPage - 1) * BATCHES_PER_PAGE;
+    const startIndex = Math.max(0, endIndex - BATCHES_PER_PAGE);
+    
     let html = "<table><thead><tr><th>Batch ID</th><th>Device</th><th>CID Hash</th><th>Window</th><th>Block</th></tr></thead><tbody>";
     
-    // Get batches from blockchain
-    for (let i = 0; i < Number(total); i++) {
+    // Load batches in reverse order (newest first)
+    for (let i = endIndex - 1; i >= startIndex; i--) {
       const batch = await publicClient.readContract({
         address: dataAnchorAddr,
         abi: DATA_ANCHOR_ABI,
@@ -811,8 +847,20 @@ async function loadBatches() {
     
     html += "</tbody></table>";
     el("batchesTable").innerHTML = html;
+    
+    // Update pagination info
+    el("batchPageInfo").textContent = `Page ${currentBatchPage} of ${totalPages} (${totalBatchCount} total)`;
+    
+    // Enable/disable buttons
+    el("btnBatchFirst").disabled = currentBatchPage === 1;
+    el("btnBatchPrev10").disabled = currentBatchPage === 1;
+    el("btnBatchPrev").disabled = currentBatchPage === 1;
+    el("btnBatchNext").disabled = currentBatchPage === totalPages;
+    el("btnBatchNext10").disabled = currentBatchPage === totalPages;
+    el("btnBatchLast").disabled = currentBatchPage === totalPages;
+    
   } catch (e) {
-    logErr("Failed to load batches: " + (e.message || e));
+    logErr("Failed to load batch page: " + (e.message || e));
   }
 }
 
@@ -1219,7 +1267,12 @@ el("btnLoad").addEventListener("click", loadContracts);
 el("btnRefresh").addEventListener("click", refresh);
 el("btnRegister").addEventListener("click", registerDevice);
 el("btnLoadBatches").addEventListener("click", loadBatches);
-el("btnVerify").addEventListener("click", verifyBatch);
+el("btnBatchFirst").addEventListener("click", () => loadBatchPage(1));
+el("btnBatchPrev10").addEventListener("click", () => loadBatchPage(currentBatchPage - 10));
+el("btnBatchPrev").addEventListener("click", () => loadBatchPage(currentBatchPage - 1));
+el("btnBatchNext").addEventListener("click", () => loadBatchPage(currentBatchPage + 1));
+el("btnBatchNext10").addEventListener("click", () => loadBatchPage(currentBatchPage + 10));
+el("btnBatchLast").addEventListener("click", () => loadBatchPage(Math.ceil(totalBatchCount / BATCHES_PER_PAGE)));el("btnVerify").addEventListener("click", verifyBatch);
 el("btnLoadBreaches").addEventListener("click", loadBreaches);
 el("btnCheckProduct").addEventListener("click", checkProduct);
 el("btnLoadChart").addEventListener("click", loadDeviceChart);
