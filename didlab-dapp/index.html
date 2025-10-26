@@ -988,142 +988,76 @@ async function verifyCID() {
   resultDiv.innerHTML = "<p class='muted'>Verifying CID and fetching from IPFS...</p>";
   
   try {
-    // Resolve device & pinned device CID from on-chain batch, then find batch CID in backend and verify
     const batchOnChain = window.currentBatch;
-    const batchId = window.currentBatchId;
-    const deviceAddress = String(batchOnChain.device);
-    // Get device metadata CID from DeviceRegistry
-    const deviceInfo = await publicClient.readContract({
-      address: deviceRegistryAddr,
-      abi: DEVICE_REGISTRY_ABI,
-      functionName: "getDevice",
-      args: [deviceAddress]
-    });
-    const pinnedDeviceCID = String(deviceInfo.metadataCID).trim();
-
-    // Use DIDLab API to verify and fetch CID info directly
-    const verifyRes = await fetch(`https://api.didlab.org/v1/ipfs/verify/${cid}`);
-    if (!verifyRes.ok) throw new Error('CID not found or not pinned on DIDLab IPFS');
-    const verifyData = await verifyRes.json();
-    const batchCid = verifyData.cid || cid.trim();
-
-
-
-    // Compute keccak256 over the batch CID's UTF-8 bytes (matches backend toHex(cid))
+    
+    // Compute hash from provided CID
     const encoder = new TextEncoder();
-    const bytes = encoder.encode(batchCid);
+    const bytes = encoder.encode(cid);
     const hex = '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
     const computedHash = keccak256(hex).toLowerCase();
-
-    // Compare with on-chain value
+    
+    // Compare with on-chain
     const onChainHash = String(batchOnChain.cidHash).toLowerCase();
     if (computedHash !== onChainHash) {
       resultDiv.innerHTML = `
         <div class="verify-result error">
           <h4>⚠️ HASH MISMATCH</h4>
-          <p class="small">On-chain cidHash: <span class="mono">${onChainHash}</span></p>
-          <p class="small">Computed from backend CID (${batchCid}): <span class="mono">${computedHash}</span></p>
+          <p class="small">On-chain: ${onChainHash}</p>
+          <p class="small">Computed: ${computedHash}</p>
         </div>
       `;
       return;
     }
-
-    // At this point batchCid is verified against on-chain hash — show the pinned device CID and proceed
+    
+    // Fetch batch data from IPFS
+    const ipfsUrl = `https://gateway.didlab.org/ipfs/${cid}`;
+    const ipfsRes = await fetch(ipfsUrl);
+    if (!ipfsRes.ok) throw new Error(`IPFS fetch failed`);
+    const batchData = await ipfsRes.json();
+    
+    // Display verified batch data (NOT device metadata)
+    const readingsCount = batchData?.count ?? batchData.readings?.length ?? 0;
+    const windowHtml = batchData?.window
+      ? `${new Date(batchData.window.start * 1000).toLocaleString()}<br>to ${new Date(batchData.window.end * 1000).toLocaleString()}`
+      : "Not available";
+    
     resultDiv.innerHTML = `
       <div class="verify-result success">
-        <h4>✓ Batch CID verified</h4>
-        <div class="kvs">
-          <div class="muted">Device (on-chain)</div><div class="mono">${deviceAddress}</div>
-          <div class="muted">Pinned Device Metadata CID</div><div class="mono">${pinnedDeviceCID}</div>
-          <div class="muted">Batch CID (backend)</div><div class="mono">${batchCid}</div>
+        <h4>✅ VERIFIED - CID MATCHES ON-CHAIN HASH</h4>
+        <p><strong>Batch CID:</strong> <span class="mono">${cid}</span></p>
+        <p><a href="https://gateway.didlab.org/ipfs/${cid}" target="_blank">View on IPFS →</a></p>
+        <div class="kvs" style="margin-top: 8px;">
+          <div class="muted">Device</div>
+          <div class="mono">${batchData.device || 'N/A'}</div>
+          <div class="muted">Readings</div>
+          <div>${readingsCount}</div>
+          <div class="muted">Window</div>
+          <div class="small">${windowHtml}</div>
         </div>
+        ${batchData.readings ? `
+          <details style="margin-top: 12px;">
+            <summary>📊 View Readings (${batchData.readings.length})</summary>
+            <div style="max-height: 300px; overflow-y: auto;">
+              <table class="small">
+                <thead><tr><th>Time</th><th>Temp</th><th>Humidity</th></tr></thead>
+                <tbody>
+                  ${batchData.readings.slice(0, 50).map(r => `
+                    <tr>
+                      <td>${new Date(r.t * 1000).toLocaleTimeString()}</td>
+                      <td>${r.temp}°C</td>
+                      <td>${r.hum}%</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ` : ''}
       </div>
     `;
-
-    
-  const ipfsUrl = `https://gateway.didlab.org/ipfs/${cid}`;
-  const ipfsRes = await fetch(ipfsUrl, { mode: 'cors' });
-  if (!ipfsRes.ok) throw new Error(`IPFS fetch failed: ${ipfsRes.statusText}`);
-  const text = await ipfsRes.text();
-  let batchData;
-  try {
-    batchData = JSON.parse(text);
-  } catch {
-    throw new Error('Invalid JSON returned from IPFS gateway');
-  }
-
-    
-// Display verified data — prefer device from IPFS, fall back to pinnedDeviceCID from registry
-const ipfsDevice = batchData?.device || batchData?.deviceAddress || batchData?.deviceCID || null;
-const displayedDevice = ipfsDevice || pinnedDeviceCID || "Unknown";
-
-const readingsCount = batchData?.count ?? (Array.isArray(batchData?.readings) ? batchData.readings.length : 0);
-const windowHtml = batchData?.window
-  ? `${new Date(batchData.window.start * 1000).toLocaleString()}<br>to ${new Date(batchData.window.end * 1000).toLocaleString()}`
-  : "Not available in IPFS data";
-
-resultDiv.innerHTML = `
-  <div class="verify-result success">
-    <h4>✅ VERIFIED - CID MATCHES ON-CHAIN HASH</h4>
-    <p><strong>IPFS CID:</strong> <span class="mono">${cid}</span></p>
-    <p><a href="https://gateway.didlab.org/ipfs/${cid}" target="_blank">View on IPFS →</a></p>
-    <div style="margin-top: 12px;">
-      <strong>Batch Contents:</strong>
-      <div class="kvs" style="margin-top: 8px;">
-        <div class="muted">Device</div>
-        <div class="mono">${displayedDevice}</div>
-
-        <div class="muted">Readings Count</div>
-        <div>${readingsCount}</div>
-
-        <div class="muted">Window</div>
-        <div class="small">${windowHtml}</div>
-      </div>
-    </div>
-
-    ${Array.isArray(batchData?.readings) ? `
-      <details style="margin-top: 12px;">
-        <summary style="cursor: pointer; font-weight: 600;">📊 View Readings (${batchData.readings.length})</summary>
-        <div style="max-height: 300px; overflow-y: auto; margin-top: 8px;">
-          <table class="small">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Temp (°C)</th>
-                <th>Humidity (%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${batchData.readings.slice(0, 50).map(r => `
-                <tr>
-                  <td>${new Date(r.t * 1000).toLocaleTimeString()}</td>
-                  <td>${r.temp}</td>
-                  <td>${r.hum}</td>
-                </tr>
-              `).join('')}
-              ${batchData.readings.length > 50 ? `
-                <tr><td colspan="3" class="muted">... and ${batchData.readings.length - 50} more</td></tr>
-              ` : ''}
-            </tbody>
-          </table>
-        </div>
-      </details>
-    ` : ''}
-  </div>
-`;
-
-    
-    logOk(`✓ Batch verified and loaded from IPFS`);
     
   } catch (e) {
-    resultDiv.innerHTML = `
-      <div class="verify-result error">
-        <h4>Error Loading from IPFS</h4>
-        <p>${e.message}</p>
-        <p class="small muted">The hash may match, but the content could not be retrieved from IPFS.</p>
-      </div>
-    `;
-    logErr("IPFS fetch error: " + e.message);
+    resultDiv.innerHTML = `<div class="verify-result error">Error: ${e.message}</div>`;
   }
 }
 
