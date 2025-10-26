@@ -1,0 +1,26 @@
+console.log(b);
+const b = ethers.utils.toUtf8Bytes(cid);
+const cid = "QmYBsdk8ZqUkvs4U3kFKe8d7y3GMdNpyiJQTYqJNzL2Cze";
+const { ethers } = require("hardhat");
+> 
+Uncaught ReferenceError: b is not defined
+> console.log(b);
+undefined
+> // 4. Print each byte value
+> 
+Uncaught ReferenceError: ethers is not defined
+> let b = ethers.utils.toUtf8Bytes(cid);
+undefined
+> // 3. Convert to bytes
+> 
+undefined
+> let cid = "QmYBsdk8ZqUkvs4U3kFKe8d7y3GMdNpyiJQTYqJNzL2Cze";
+undefined
+> // 2. Define the CID string
+vboxuser@BlockchainVM:~/midterm/deploy-contract$ npx hardhat console --network localhost
+console.log(b);
+// 4. Print each byte value
+let b = ethers.utils.toUtf8Bytes(cid);
+// 3. Convert to bytes
+let cid = "QmYBsdk8ZqUkvs4U3kFKe8d7y3GMdNpyiJQTYqJNzL2Cze";
+// 2. Define the CID string

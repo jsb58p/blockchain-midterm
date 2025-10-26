@@ -22,6 +22,7 @@ contract DataAnchor is AccessControl {
     // Batch commitment structure
     struct BatchCommitment {
         address device;
+        string cid;
         bytes32 cidHash;         // keccak256 of IPFS CID
         uint64 windowStart;
         uint64 windowEnd;
@@ -40,6 +41,7 @@ contract DataAnchor is AccessControl {
     event BatchCommitted(
         uint256 indexed batchId,
         address indexed device,
+        string cid,
         bytes32 cidHash,
         uint64 windowStart,
         uint64 windowEnd,
@@ -57,24 +59,27 @@ contract DataAnchor is AccessControl {
     /**
      * @dev Commit a batch of sensor readings to the blockchain
      * @param device The device address that generated the readings
-     * @param cidHash keccak256 hash of the IPFS CID
+     * @param cid The IPFS CID string
      * @param windowStart Start timestamp of the batch window
      * @param windowEnd End timestamp of the batch window
      */
     function commitBatch(
         address device,
-        bytes32 cidHash,
+        string calldata cid,
         uint64 windowStart,
         uint64 windowEnd
     ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
         if (device == address(0)) revert InvalidDevice();
-        if (cidHash == bytes32(0)) revert InvalidCIDHash();
+        if (bytes(cid).length == 0) revert InvalidCIDHash();
         if (windowEnd <= windowStart) revert InvalidTimeWindow();
+
+        bytes32 cidHash = keccak256(bytes(cid));
 
         uint256 batchId = batches.length;
 
         BatchCommitment memory commitment = BatchCommitment({
             device: device,
+            cid: cid,
             cidHash: cidHash,
             windowStart: windowStart,
             windowEnd: windowEnd,
@@ -90,6 +95,7 @@ contract DataAnchor is AccessControl {
         emit BatchCommitted(
             batchId,
             device,
+            cid,
             cidHash,
             windowStart,
             windowEnd,

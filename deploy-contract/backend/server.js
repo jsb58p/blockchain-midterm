@@ -1,7 +1,7 @@
 // server.js - SensorSeal Backend API
 import express from 'express';
 import cors from 'cors';
-import { createPublicClient, createWalletClient, http, recoverMessageAddress } from 'viem';
+import { createPublicClient, createWalletClient, http, recoverMessageAddress, keccak256, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { create } from 'kubo-rpc-client';
 import dotenv from 'dotenv';
@@ -97,7 +97,7 @@ const DATA_ANCHOR_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       { name: 'device', type: 'address' },
-      { name: 'cidHash', type: 'bytes32' },
+      { name: 'cid', type: 'string' },
       { name: 'windowStart', type: 'uint64' },
       { name: 'windowEnd', type: 'uint64' },
     ],
@@ -308,17 +308,15 @@ async function processBatches() {
       const cid = await pinToIPFS(batchData);
       console.log(`  IPFS CID: ${cid}`);
 
-      // Compute hash
-      const { keccak256, toHex } = await import('viem');
-      const cidHash = keccak256(toHex(cid));
-
+      const cidHash = keccak256(toHex(cid));  // ✅ Add this
+      
       // Commit to blockchain
       const hash = await walletClient.writeContract({
         address: DATA_ANCHOR_ADDRESS,
         abi: DATA_ANCHOR_ABI,
         functionName: 'commitBatch',
-        args: [deviceAddress, cidHash, BigInt(windowStart), BigInt(windowEnd)],
-        gas: 300000n,
+        args: [deviceAddress, cid, BigInt(windowStart), BigInt(windowEnd)],
+        gas: 500000n,
         gasPrice: 20000000000n,
       });
 

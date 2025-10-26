@@ -424,6 +424,7 @@ import {
   createPublicClient,
   createWalletClient,
   custom,
+  http,
   getAddress,
   keccak256,
   toHex
@@ -493,6 +494,7 @@ const DATA_ANCHOR_ABI = [
       type: 'tuple',
       components: [
         { name: 'device', type: 'address' },
+        { name: 'cid', type: 'string' },
         { name: 'cidHash', type: 'bytes32' },
         { name: 'windowStart', type: 'uint64' },
         { name: 'windowEnd', type: 'uint64' },
@@ -514,10 +516,20 @@ const DATA_ANCHOR_ABI = [
     inputs: [
       { name: 'batchId', type: 'uint256', indexed: true },
       { name: 'device', type: 'address', indexed: true },
+      { name: 'cid', type: 'string', indexed: false },
       { name: 'cidHash', type: 'bytes32', indexed: false },
       { name: 'windowStart', type: 'uint64', indexed: false },
-      { name: 'windowEnd', type: 'uint64', indexed: false }
+      { name: 'windowEnd', type: 'uint64', indexed: false },
+      { name: 'timestamp', type: 'uint256', indexed: false },
+      { name: 'blockNumber', type: 'uint256', indexed: false }
     ]
+  },
+  {
+    type: 'function',
+    name: 'getBatchesByDevice',
+    stateMutability: 'view',
+    inputs: [{ name: 'device', type: 'address' }],
+    outputs: [{type: 'uint256[]' }]
   }
 ];
 
@@ -670,7 +682,7 @@ async function connect() {
     });
     publicClient = createPublicClient({
       chain,
-      transport: custom(window.ethereum)
+      transport: http(CHAIN.rpc)
     });
     
     await addOrSwitchNetwork();
@@ -989,19 +1001,13 @@ async function verifyCID() {
     });
     const pinnedDeviceCID = String(deviceInfo.metadataCID).trim();
 
-    // Fetch backend batch list and find the entry for this on-chain batch (match by blockNumber or txHash)
-    const batchesRes = await fetch(`${apiUrl}/batches`);
-    if (!batchesRes.ok) throw new Error('Failed to fetch backend batches');
-    const batchesList = await batchesRes.json();
-    const matched = batchesList.find(b =>
-      String(b.blockNumber) === String(batchOnChain.blockNumber) ||
-      String(b.txHash).toLowerCase() === (String(batchOnChain.txHash || '')).toLowerCase()
-    );
-    if (!matched) {
-      resultDiv.innerHTML = `<div class="verify-result error"><h4>⚠️ Unable to locate batch CID in backend for this on-chain batch</h4></div>`;
-      return;
-    }
-    const batchCid = String(matched.cid).trim();
+    // Use DIDLab API to verify and fetch CID info directly
+    const verifyRes = await fetch(`https://api.didlab.org/v1/ipfs/verify/${cid}`);
+    if (!verifyRes.ok) throw new Error('CID not found or not pinned on DIDLab IPFS');
+    const verifyData = await verifyRes.json();
+    const batchCid = verifyData.cid || cid.trim();
+
+
 
     // Compute keccak256 over the batch CID's UTF-8 bytes (matches backend toHex(cid))
     const encoder = new TextEncoder();
@@ -1035,73 +1041,77 @@ async function verifyCID() {
     `;
 
     
-    // Fetch from IPFS
-    const ipfsRes = await fetch(`https://ipfs.io/ipfs/${cid}`);
-    if (!ipfsRes.ok) {
-      throw new Error(`IPFS fetch failed: ${ipfsRes.statusText}`);
-    }
-    
-    const batchData = await ipfsRes.json();
-    
-    // Display verified data
-    resultDiv.innerHTML = `
-      <div class="verify-result success">
-        <h4>✅ VERIFIED - CID MATCHES ON-CHAIN HASH</h4>
-        
-        <p><strong>IPFS CID:</strong> <span class="mono">${cid}</span></p>
-        <p><a href="https://ipfs.io/ipfs/${cid}" target="_blank">View on IPFS →</a></p>
-        
-        <div style="margin-top: 12px;">
-          <strong>Batch Contents:</strong>
-          <div class="kvs" style="margin-top: 8px;">
-            <div class="muted">Device</div>
-            <div class="mono">${batchData.device}</div>
-            
-            <div class="muted">Readings Count</div>
-            <div>${batchData.count || batchData.readings?.length || 0}</div>
-            
-            <div class="muted">Window</div>
-            <div class="small">
-              ${
-                batchData.window
-                  ? `${new Date(batchData.window.start * 1000).toLocaleString()}<br>to ${new Date(batchData.window.end * 1000).toLocaleString()}`
-                  : "Not available in IPFS data"
-              }
-            </div>
+  const ipfsUrl = `https://gateway.didlab.org/ipfs/${cid}`;
+  const ipfsRes = await fetch(ipfsUrl, { mode: 'cors' });
+  if (!ipfsRes.ok) throw new Error(`IPFS fetch failed: ${ipfsRes.statusText}`);
+  const text = await ipfsRes.text();
+  let batchData;
+  try {
+    batchData = JSON.parse(text);
+  } catch {
+    throw new Error('Invalid JSON returned from IPFS gateway');
+  }
 
-          </div>
-        </div>
-        
-        ${batchData.readings ? `
-          <details style="margin-top: 12px;">
-            <summary style="cursor: pointer; font-weight: 600;">📊 View Readings (${batchData.readings.length})</summary>
-            <div style="max-height: 300px; overflow-y: auto; margin-top: 8px;">
-              <table class="small">
-                <thead>
-                  <tr>
-                    <th>Time</th>
-                    <th>Temp (°C)</th>
-                    <th>Humidity (%)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${batchData.readings.slice(0, 50).map(r => `
-                    <tr>
-                      <td>${new Date(r.t * 1000).toLocaleTimeString()}</td>
-                      <td>${r.temp}</td>
-                      <td>${r.hum}</td>
-                    </tr>
-                  `).join('')}
-                  ${batchData.readings.length > 50 ? `
-                    <tr><td colspan="3" class="muted">... and ${batchData.readings.length - 50} more</td></tr>
-                  ` : ''}
-                </tbody>
-              </table>
-            </div>
-          </details>
-        ` : ''}
+    
+// Display verified data — prefer device from IPFS, fall back to pinnedDeviceCID from registry
+const ipfsDevice = batchData?.device || batchData?.deviceAddress || batchData?.deviceCID || null;
+const displayedDevice = ipfsDevice || pinnedDeviceCID || "Unknown";
+
+const readingsCount = batchData?.count ?? (Array.isArray(batchData?.readings) ? batchData.readings.length : 0);
+const windowHtml = batchData?.window
+  ? `${new Date(batchData.window.start * 1000).toLocaleString()}<br>to ${new Date(batchData.window.end * 1000).toLocaleString()}`
+  : "Not available in IPFS data";
+
+resultDiv.innerHTML = `
+  <div class="verify-result success">
+    <h4>✅ VERIFIED - CID MATCHES ON-CHAIN HASH</h4>
+    <p><strong>IPFS CID:</strong> <span class="mono">${cid}</span></p>
+    <p><a href="https://gateway.didlab.org/ipfs/${cid}" target="_blank">View on IPFS →</a></p>
+    <div style="margin-top: 12px;">
+      <strong>Batch Contents:</strong>
+      <div class="kvs" style="margin-top: 8px;">
+        <div class="muted">Device</div>
+        <div class="mono">${displayedDevice}</div>
+
+        <div class="muted">Readings Count</div>
+        <div>${readingsCount}</div>
+
+        <div class="muted">Window</div>
+        <div class="small">${windowHtml}</div>
       </div>
-    `;
+    </div>
+
+    ${Array.isArray(batchData?.readings) ? `
+      <details style="margin-top: 12px;">
+        <summary style="cursor: pointer; font-weight: 600;">📊 View Readings (${batchData.readings.length})</summary>
+        <div style="max-height: 300px; overflow-y: auto; margin-top: 8px;">
+          <table class="small">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Temp (°C)</th>
+                <th>Humidity (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${batchData.readings.slice(0, 50).map(r => `
+                <tr>
+                  <td>${new Date(r.t * 1000).toLocaleTimeString()}</td>
+                  <td>${r.temp}</td>
+                  <td>${r.hum}</td>
+                </tr>
+              `).join('')}
+              ${batchData.readings.length > 50 ? `
+                <tr><td colspan="3" class="muted">... and ${batchData.readings.length - 50} more</td></tr>
+              ` : ''}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    ` : ''}
+  </div>
+`;
+
     
     logOk(`✓ Batch verified and loaded from IPFS`);
     
@@ -1154,7 +1164,7 @@ async function loadBreaches() {
             <div class="muted">Batch</div><div>${breach.batchId.toString()}</div>
             <div class="muted">When</div><div>${date}</div>
             <div class="muted">Type</div><div>${breach.breachType}</div>
-            <div class="muted">Report</div><div><a href="https://ipfs.io/ipfs/${ipfsLink}" target="_blank">${ipfsLink.slice(0,18)}...</a></div>
+            <div class="muted">Report</div><div><a href="https://gateway.didlab.org/ipfs/${ipfsLink}" target="_blank">${ipfsLink.slice(0,18)}...</a></div>
           </div>
         </div>
       `;
@@ -1227,21 +1237,42 @@ async function loadDeviceChart() {
   try {
     const deviceAddr = getAddress(el("chartDeviceAddr").value.trim());
     
-    // Fetch batch metadata only
-    const res = await fetch(`${apiUrl}/batches`);
-    const batches = await res.json();
+    // Get batch IDs from blockchain
+    const batchIds = await publicClient.readContract({
+      address: dataAnchorAddr,
+      abi: DATA_ANCHOR_ABI,
+      functionName: 'getBatchesByDevice',
+      args: [deviceAddr]
+    });
     
-    deviceBatchesForChart = batches.filter(b => 
-      b.device.toLowerCase() === deviceAddr.toLowerCase()
-    ).sort((a, b) => b.timestamp - a.timestamp); // Newest first
-    
-    if (deviceBatchesForChart.length === 0) {
+    if (!batchIds || batchIds.length === 0) {
       el("chartStats").innerHTML = "No data found for this device";
       return;
     }
     
-    // Count total readings without fetching IPFS
-    totalReadingsCount = deviceBatchesForChart.length * 10; // Estimate, will refine
+    // Fetch batch data from blockchain (with CIDs)
+    const batchPromises = batchIds.map(id =>
+      publicClient.readContract({
+        address: dataAnchorAddr,
+        abi: DATA_ANCHOR_ABI,
+        functionName: 'getBatch',
+        args: [id]
+      })
+    );
+    
+    const batches = await Promise.all(batchPromises);
+    
+    // Convert to format expected by loadChartPage
+    deviceBatchesForChart = batches
+      .map((batch, idx) => ({
+        device: batch.device,
+        cid: batch.cid,
+        timestamp: Number(batch.timestamp),
+        batchId: batchIds[idx]
+      }))
+      .sort((a, b) => b.timestamp - a.timestamp); // Newest first
+    
+    totalReadingsCount = deviceBatchesForChart.length * 10; // Estimate
     currentReadingsPage = 1;
     
     await loadChartPage(1);
@@ -1274,7 +1305,7 @@ async function loadChartPage(page) {
     
     // Fetch all needed batches in parallel
     const batchPromises = batchesToFetch.map(batch =>
-      fetch(`https://ipfs.io/ipfs/${batch.cid}`)
+      fetch(`https://gateway.didlab.org/ipfs/${batch.cid}`)      
         .then(r => r.json())
         .catch(() => null)
     );
@@ -1484,7 +1515,7 @@ async function loadProductView() {
           <div class="breach-card" style="margin-top: 8px;">
             <strong>Breach NFT #${tokenId.toString()}</strong> - ${breach.breachType}<br>
             <span class="small">Device: ${String(breach.device).slice(0, 16)}... | ${date}</span><br>
-            <a href="https://ipfs.io/ipfs/${ipfsLink}" target="_blank">View Report →</a>
+            <a href="https://gateway.didlab.org/ipfs/${ipfsLink}" target="_blank">View Report →</a>
           </div>
         `;
       }
