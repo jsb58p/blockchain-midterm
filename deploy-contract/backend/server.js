@@ -335,16 +335,23 @@ async function processBatches() {
         timestamp: now,
       });
 
-      // Check for breaches
+      // Tag readings with their batch CID and check for breaches
+      const breachReadings = [];
       for (const reading of readings) {
+        reading.batchCID = cid; // Store CID with the reading
         const breachCheck = checkBreach(reading);
         if (breachCheck.breach) {
-          await handleBreach(deviceAddress, reading, breachCheck.type, deviceInfo.traceTokenId, cid);
+          breachReadings.push({ reading, breachType: breachCheck.type });
         }
       }
 
       // Clear queue
       readingsQueue[deviceAddress] = [];
+
+      // Handle breaches AFTER clearing the queue
+      for (const { reading, breachType } of breachReadings) {
+        await handleBreach(deviceAddress, reading, breachType, deviceInfo.traceTokenId, reading.batchCID);
+      }
     } catch (e) {
       console.error(`  ✗ Batch processing failed for ${deviceAddress}:`, e.message);
     }
