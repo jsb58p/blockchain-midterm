@@ -1,20 +1,20 @@
-###SensorSeal Project
+# SensorSeal Project
 
 For our sensor seal project, we wanted to implement cold chain integrity that had tamper evident data and fast auditing. The way we did this was for simulated device sign readings, to backend batches that pins to IPFS, then links to the on-chain anchor, breach mints NFT and flags related product.
 
-##Notarization Pattern:
+## Notarization Pattern:
 The system we are using employs a batched off-chain data anchoring pattern. It’s a hybrid approach that’s designed to balance the integrity guarantees of a blockchain with high-throughput, low cost requirements of real time IoT data ingestion. Our notarization flow is as follows:
 
 We first have off-chain ingestion. The IoT devices sign data readings, such as temperature and humidity) using their private key to send them to a centralized backend server via a standard ‘POST /ingest’ API call. We then have off-chain batching. So the backend server verifies the device signature and checks the active status against the DeviceRegistry smart contract. Valid readings are added to a temporary queue so it’s in memory. Next up we have decentralized storage. After a small time window, like 60 seconds, the server bundles all the queued readings into a JSON batch file. The file is pinned to IPFS, which returns a unique CID.
 
 Lastly there’s on-chain notarization. The server calculates a keccak256 hash based on the IPFS CID. This hash, called a cidHash, is the only piece of data that is written to the blockchain. It’s executed using a commit batch function in the DataAnchor smart contract. Doing this creates an immutable timestamped anchor for proof of existence for the entire data branch. Using this pattern allows the system to immutably notarize off-chain data with a single transaction. Verification is achieved by getting the cidHash from the DataAnchor contract, which then gets the corresponding batch file from IPFS and recalculating the has to ensure it matches the on-chain record.
 
-##Latency and Throughput:
+## Latency and Throughput:
 We have two distinct performance profiles for data ingestion and data finality, which creates a clear separation. Our throughput is very high for ingestion. So our data ingestion is handled by a backend server, which allows for extremely high throughput, as the POST /ingest endpoint can accept thousands of readings per second. The reason we cannot go higher is because it’s limited by web server capacity. The IoT device gets a 200 OK response almost immediately, which allows it to resume operations without waiting for blockchain confirmation. For the notarization, the effective throughput is also high. By batching 60 seconds of data, a commitBatch() function can successfully notarize hundreds or thousands of individual readings at once.
 
 For latency, it’s dual profile. It has low ingestion latency, which means the time to acceptance for data readings is minimal. The only blocking actions are signature verification and a contract view call, which are both very fast. For the notarization latency, it’s very high. The time to finality, which is when data is immutably verifiable on the chain, is intentionally high. It’s a sum of batching windows, IPFS pinning time, and the blockchain’s block confirmation time. The tradeoff makes it unsuitable for applications requiring real time on chain consensus but it’s ideal for services like auditing or supply chain monitoring, which then prioritize verifiable integrity over finality.
 
-##Failure Modes:
+## Failure Modes:
 
 Our systems hybrid design introduces failure points, related to the centralized components. The most critical failure mode is the centralized backend server. The backend server is the most significant point of failure. There’s 3 components to this as well. The first is data loss. Since we have an in memory queue, if the server crashes, restarts, or suffers a power outage, all the data held in the memory queue will be lost forever. There will be no trace of it either. The second is service downtime. So if the backend server fails, the data pipeline halts, so our devices, simulated or not, cannot submit new data, batches aren’t created, and no notarization takes place. The third part of the backend failure is breach detection failure. It’s solely responsible for checking data for breaches, such as temp being out of bounds, and minting a BreachNFT. A bug in the server side could cause it to miss a breach event, which doesn’t create the on chain alert.
 
